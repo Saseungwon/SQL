@@ -1,1 +1,1 @@
-# SQL-NEXT-IT
+# sql-next-it
