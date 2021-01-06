@@ -165,3 +165,249 @@ EMAIL VARCHAR2(100),
 HOBBY VARCHAR2(1000)
 );
 ```
+
+- ALTER 테이블 수정 
+
+```sql
+-- 컬럼명 수정
+ALTER TABLE ex_210 Rename COLUMN col1 TO col12;
+
+-- 테이블 이름, 널유뮤, 유형 확인
+DESC ex2_10; -- 확인
+
+-- 컬럼 타입 수정
+ALTER TABLE ex2_10 MODIFY col2 VARCHAR2(30);
+DESC ex2_10; -- 확인
+
+-- 컬럼 추가
+ALTER TABLE ex2_10 ADD col3 NUMBER;
+DESC ex2_10; -- 확인
+
+-- 컬럼 삭제
+ALTER TABLE ex2_10 DROP COLUMN;
+```
+
+
+##📚 SQL 기본
+### SELECT
+1. SELECT문
+- 가장 기본적인 SQL문으로 테이블이나 뷰에 있는 데이터를 조회할 때 사용
+```sql
+SELECT*혹은 컬럼
+FROM[스키마.]테이블명 혹은 [스키마.]뷰명
+
+WHERE 조건
+ORDER BY 컬럼;
+```
+- WHERE절(어디에서) 어떤 데이터를 가져올 것인가.
+- ORDER BY 정렬이 필요할 때(DESC내림차순, ASC오름차)
+
+```sql
+SELECT *
+FROM DEP , EMP
+where dep.deptno = emp.dno;
+
+-- ALTER 테이블 수정 -----------
+
+-- 제컬럼명 수정
+ALTER TABLE ex_210 Rename COLUMN col1 TO col12;
+-- 테이블 이름, 널유뮤, 유형 확인
+DESC ex2_10; -- 확인
+-- 컬럼 타입 수정
+ALTER TABLE ex2_10 MODIFY col2 VARCHAR2(30);
+DESC ex2_10; -- 확인
+-- 컬럼 추가
+ALTER TABLE ex2_10 ADD col3 NUMBER;
+DESC ex2_10; -- 확인
+-- 컬럼 삭제
+ALTER TABLE ex2_10 DROP COLUMN;
+
+
+/* SELECT : 가장 기본적인 SQL DML 문
+            테이블이나 뷰에 있는 데이터를 조회할 때 사용
+*/
+SELECT emp_name
+    , email --- 조회하고자 하는 컬럼
+    
+SELECT *   --- * 전체 검색
+FROM employees;
+
+SELECT employees_id
+    , emp_name
+FROM employees
+
+WHERE salary > 5000; -- WHERE 조건
+
+-- ORDER BY 정렬 ASC 디폴트 오름차순 (DESC 내림차순)
+SELECT  employee_id
+        salary  ,
+        emp_name
+FROM employees
+WHERE salary > 5000
+ORDER BY salary DESC ;
+--ORDER BY salary ;
+--ORDER BY 2 desc ; -- 컬렴 명이 아닌 셀렉트 절 컬럼 순서로 가능
+
+
+-- AND(그리고)[A,B조건 모두 포함 할 때]
+SELECT employee_id ,
+       emp_name ,
+       salary ,
+       job_id
+FROM employees
+WHERE salary > 5000
+AND job_id = 'IT_PROG'
+ORDER BY employee_id;
+
+-- alias(가명, 별명)
+SELECT a.employee_id ,
+       a.emp_name,
+       a.department_id,
+       b.department_name AS dep_name  --AS 쓰면 그 당시에만 이름이 바뀌어서 나옴(일시적)
+FROM employees a ,
+    departments b
+WHERE a. department_id = b.department_id;
+```
+
+
+2. INSERT문
+- 신규 데이터를 입력할 때 사용하는 INSERT문은 크게  컬럼명 생략 형태
+- INSERT ~ SELECT 형태로 나눌 수 있다.
+```
+--INSERT 기본형태
+INSERT INTO [스키마.]테이블명(컬럼1,컬럼2…)
+VALUES(값1, 값2…)
+```
+```
+--컬럼명은 기술하지 않지만 VALUES 절에는 테이블의 컬럼 순서대로 해당 컬럼 값을 기술해야 한다.
+--INSERT 컬럼명 기술 생략 형태
+INSERT INTO [스키마.]테이블명
+VALUES(값1,값2,…);
+```
+```sql
+--INSERT 기본형태
+
+
+-- 각 컬럼의 타입에 맞게 삽입해야함.
+INSERT INTO ex3_1 (col1, col2, col3)
+VALUES ('ABC', 10, 30); --타입에 오류
+
+CREATE TABLE ex3_2 (
+        emp_id      NUMBER,
+        emp_name    VARCHAR2(100)
+);
+
+--INSERT ~ SELECT 형태
+INSERT INTO ex3_2(emp_id,emp_name)
+SELECT employee_id, emp_name
+FROM employees
+WHERE salary > 5000;
+```
+
+
+3. UPDATE문
+- 테이블에 있는 기존 데이터를 수정할 때 사용하는 문장
+```sql
+UPDATE[스키마.]테이블명
+SET 컬럼1 = 변경값1,
+         컬럼2 = 변경값2,
+
+WHERE 조건;
+```
+```sql
+--전체 업데이트
+update ex3_2
+set emp_name = 'nick'
+;
+
+--특정조건 데이터만 업데이트
+update ex3_2
+set emp_name = 'nick'
+where emp_id = '202';
+
+
+update ex3_1
+set col2 = '2', --- 여러 컬럼 업데이트 컬럼, 컬
+    col3 = SYSDATE;
+```
+```sql
+SELECT *
+FROM INFO;
+
+update INFO
+set HOBBY = 'MOVIE'
+where NM = '사승원';
+--되돌리고 싶으면 rollback
+```
+
+4. DELETE, ROLLBACK
+- 테이블에 있는 데이터를 삭제할 때 DELETE문을 사용한다.
+```sql
+select *
+FROM ex3_2;
+DELETE ex3_2 -- 전체 삭제
+rollback -- 롤백
+
+DELETE ex3_2
+WHERE emp_id =201; 조건에 맞는 데이터 삭제
+
+select ex3_2
+```
+
+5. COMMIT : 변경한 데이터를 데이터베이스에 마지막으로 반영하는 역할
+
+6. 의사컬럼 : 테이블의 컬럼처럼 동작하지만 실제로 테이블에 저장되지는 않는 컬럼
+```sql
+select      rownum
+        , a.*
+from employees a;
+```
+
+7. 연산자
+```sql
+--수식연산자
+SELECT employee_id
+    , emp_name
+    , salary * 10  -- +, -, /, *
+FROM employees;
+
+--문자연산자
+SELECT'[' || employee_id || ']' || emp_name AS employee_ info
+FROM employees;
+
+--논리연산자 : >, <, >=, <=, =, <>, !=, ^=
+SELECT * FROM employees WHERE salary = 2600 ; -- 같다
+SELECT * FROM employees WHERE salary <> 2600 ; -- 같지 않다
+SELECT * FROM employees WHERE salary != 2600 ; -- 같지 않다
+SELECT * FROM employees WHERE salary < 2600 ; -- 미만
+SELECT * FROM employees WHERE salary > 2600 ; -- 초과
+SELECT * FROM employees WHERE salary <= 2600 ; -- 이하
+SELECT * FROM employees WHERE salary >= 2600 ; -- 이상
+
+--부서가 30이 아닌것(<>,!=,^=)
+SELECT employee_id
+      ,emp_name
+      ,salary
+      ,department_id
+FROM employees
+WHERE department_id ^= 30;
+--WHERE department_id <>30 ;  --!= ^= 동일하게 조회 됨
+
+오늘의 문제
+1. products 테이블에서
+상품최저 금액(prod_min_price)이 30원 이상 50원 미만의 상품명을 조회하세요
+
+2. products 테이블에서 하위카테고리가 cd_rom이고 상품최저금액이 35보다 크고 상품최저금액이 40보다 작은 상품명을 조회하세요
+
+SELECT PROD_NAME
+FROM PRODUCTS
+WHERE PROD_MIN_PRICE <=30 ;
+and PROD_MIN_PRICE <50 ;
+ 
+
+SELECT *FROM PRODUCTS WHERE PROD_MIN_PRICE <35 ;
+SELECT *FROM PRODUCTS WHERE PROD_MIN_PRICE >40 ;
+
+
+SELECT *FROM PRODUCTS where prod_subcategory ='CD-ROM'; <35 ;
+SELECT *FROM PRODUCTS where prod_subcategory ='CD-ROM'; > 40 ;
