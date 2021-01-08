@@ -627,4 +627,237 @@ SELECT TRIM(' A ')
     ,LTRIM(' A ')
     ,RTRIM(' A ')
 FROM DUAL;
-```
+
+--REPLACE(char, search_str, replace_str)
+--char에서 search_str 찾아서 replace_str로 변환
+SELECT REPLACE(MEN_MAIL, '@','====')
+    , MEM_MAIL
+FROM MEMBER;
+
+SELECT REPLACE('a b c d ab','ab','xz')
+FROM dual ;
+
+--TRANSLATE(char, search_str, replace_str)
+--REPLACE 유사하지만 문자열 자체가 아닌 한글자씩 매핑
+SELECT TRANSLATE(MEM_MAIL,'@','====')
+FROM MEMBER;
+
+SELECT TRANSLATE('a b c d ab','ab','xz')
+FROM dual;
+
+--문제1
+--customers 테이블에 있는 고객 전화 번호 (phone_number)
+--123-4564-4564 형태에서 123/4569/4567 로 바꾸어 출력하시오
+
+SELECT CUST_NAME
+,REPLACE(CUST_MAIN_PHONE_NUMBER,'-','/') as Phonenumber
+FROM CUSTOMERS ;
+
+SELECT CUST_NAME
+,REPLACE(CUST_MAIN_PHONE_NUMBER,' ','') as Phonenumber
+FROM CUSTOMERS ;               --공백제거하고 싶을 때
+
+
+--------------------------------------------------------------
+
+--INSTR(n1, n2, n3, n4)n1에서 n2를 n3, n4 디폴트(1)n3:찾을 시작점, n4 몇번째
+SELECT INSTR('내가 만약 외로울 때면,
+                            내가 만약 괴로울 때면,
+                            내가 만약 즐거울 때면', '만약') AS INSTR1,
+       INSTR('내가 만약 외로울 때면,
+                            내가 만약 괴로울 때면,
+                            내가 만약 즐거울 때면', '만약', 5) AS INSTR2, -- 5번째부터 찾아라
+       INSTR('내가 만약 외로울 때면,
+                            내가 만약 괴로울 때면,
+                            내가 만약 즐거울 때면', '만약', 5, 2) AS INSTR3 --5번째에서부터 찾는데,
+                                                                         --2번째 만약을 찾아라
+FROM dual;
+
+SELECT mem_mail
+    ,INSTR(mem_mail,'@')
+    ,substr(mem_mail,1, INSTR(mem_mail, '@')-1) as id   -- 1은 1번째 나오는 것부터 찾는 것
+    ,substr(mem_mail,INSTR(mem_mail, '@')+1) as domain  -- -1 +1이 있는 건 @ 앞뒤로 잘라야 돼서
+FROM member;
+
+-----------------------------날짜함수 ---------------------------------
+
+--날짜 함수
+-- ADD_MONTH(DATE,더할 개월 수)
+SELECT ADD_MONTHS(SYSDATE, 1)       --21/02/08
+     , ADD_MONTHS(SYSDATE,-1)       --20/12/08
+FROM dual ;
+
+--MONTHS_BETWEEN 월을 비교
+SELECT MONTHS_BETWEEN(SYSDATE, ADD_MONTHS(SYSDATE,-2)) as "월비교"
+     , MONTHS_BETWEEN(ADD_MONTHS(SYSDATE,-2),SYSDATE) as "월비교2"
+     , SYSDATE
+     , ADD_MONTHS(SYSDATE,-2)
+FROM DUAL;
+
+-- LAST_DAY 마지막 일자 리턴
+-- NEXT_DAY 다음주의 파라미터로 받은 요일 리턴
+SELECT ADD_MONTHS(SYSDATE,0)                 --21/01/08
+     , NEXT_DAY(SYSDATE, '수요일')            --21/01/13
+     , LAST_DAY(SYSDATE) - SYSDATE || '남음'  --23 남음
+     , LAST_DAY(SYSDATE)                      --21/01/31
+FROM DUAL;
+
+                            
+SELECT ROUND(to_date('20200923'), 'month')  --20/10/01 반올림한 날짜를 반환
+     , TRUNC(to_date('20200923'), 'month')  --20/09/01 잘라낸 날짜를 반환
+FROM DUAL;
+
+-----------------------------변환함수 ---------------------------------
+
+--변환함수
+--TO_CHAR 넘버, 날짜 형태의 데이터 타입을 문자형태 데이터 타입을 치환
+SELECT TO_CHAR(200984123, '999,999,999') --200,984,123
+     , TO_CHAR(SYSDATE, 'YYYY-MM-DD')    --2021-01-08
+     , TO_CHAR(SYSDATE, 'YYYY/MM/DD')    --2021/01/08
+     , TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:MI:SS') --2021-01-08 15:23:46(12H)
+     , TO_CHAR(SYSDATE, 'YYYY-MM-DD HH12:MI:SS') --2021-01-08 03:27:38(24H)
+     , TO_CHAR(SYSTIMESTAMP, 'YYYY-MM-DD HH:MI:SS:FF') --2021-01-08 03:23:46:377763(밀리sec까지)
+     , TO_CHAR(SYSDATE, 'D') --6(일요일이1 월요일은2 오늘은 금요일이니 6)
+FROM DUAL;
+
+--TO NUMBER
+SELECT TO_NUMBER('20140101')
+FROM DUAL;
+
+---------------------------------------------------------------
+--TO DATE
+SELECT TO_DATE('20140101', 'YYYY-MM-DD')
+     , TO_DATE('20140101 13:44:55', 'YYYY-MM-DD HH24:MI:SS')
+FROM DUAL;
+--'20140101', 'YYYY-MM-DD' 와 '20140101 13:44:55', 'YYYY-MM-DD HH24:MI:SS' 의 차이
+CREATE TABLE TB2 (
+    COL1 DATE
+  , COL2 DATE
+);
+INSERT INTO TB2 VALUES(
+       TO_DATE('20140101', 'YYYY-MM-DD')
+     , TO_DATE('20140101 13:44:55', 'YYYY-MM-DD HH24:MI:SS'));
+     
+SELECT TO_CHAR(COL1, 'YYYY-MM-DD HH24:MI:SS') -- 2014-01-01 00:00:00
+     , TO_CHAR(COL2, 'YYYY-MM-DD HH24:MI:SS') -- 2014-01-01 13:44:55
+FROM TB2;
+--------------------------------------------------------------
+
+--정렬시 주의
+CREATE TABLE TB1 (COL1 VARCHAR2(20));
+INSERT INTO TB1 VALUES ('1000');
+INSERT INTO TB1 VALUES ('9000');
+INSERT INTO TB1 VALUES ('90');
+INSERT INTO TB1 VALUES ('910');
+SELECT *
+FROM TB1
+ORDER BY TO_NUMBER(COL1) DESC;  --TO_NUMBER로 문자타입을 숫자타입으로 변경해야 정렬됨
+SELECT *
+FROM TB1
+ORDER BY COL1 DESC;             --위에서 숫자타입으로 변경해서 TO_NUMBER 없이 정렬됨
+
+--------------------------------------------------------------
+SELECT 'ABC'
+      , COL1
+FROM TB1;
+ , ADD_MONTHS(SYSDATE,1 - HIRE_DATE)  as 근속년수
+--------------------------------------------------------------
+
+--현재 일자를 기준으로 사원테이블의 입사일자(hire_date)를 참조해서
+--근속년수가 22년 이상인 사원을 다음과 같은 형태로 결과를 출력하시오
+
+SELECT EMPLOYEE_ID AS "사원번호"
+    , EMP_NAME  as "사원명"
+    , HIRE_DATE as "입사일자"
+    , ADD_MONTHS(SYSDATE,0)  as 근속년수
+
+select ROUND((SYSDATE - HIRE_DATE)/365) -- 근속년도
+from employees;
+
+select EMPLOYEE_ID AS "사원번호"
+    , EMP_NAME  as "사원명"
+    , HIRE_DATE as "입사일자"
+    , ROUND((SYSDATE - HIRE_DATE)/365) as 근속년수
+from employees
+WHERE ROUND((SYSDATE - HIRE_DATE)/365) >= 22
+ORDER BY HIRE_DATE ASC ;
+
+
+select EMPLOYEE_ID AS "사원번호"
+    , EMP_NAME  as "사원명"
+    , HIRE_DATE as "입사일자"
+    ,((SYSDATE - HIRE_DATE)/365) as 근속년수
+from employees
+WHERE ((SYSDATE - HIRE_DATE)/365) >= 22
+ORDER BY HIRE_DATE ASC ;
+
+--------------------------------------------------------------
+-- **SELECT문 실행순서**
+--from -> where -> group by -> having -> select절 -> order by
+--------------------------------------------------------------
+
+--NVL(n1, n2)   n1이 null 일 경우 n2로 변환
+
+SELECT employee_id
+     , NVL(commission_pct,0)
+     , salary * NVL(commission_pct,0)
+     , salary
+     , commission_pct
+FROM employees;
+
+
+SELECT employee_id
+     , NVL(commission_pct,0)
+     , salary * NVL(commission_pct,0)
+FROM employees
+WHERE NVL(commission_pct,0) < 0.2;
+
+--------------------------------------------------------------
+--DECODE(expr,search1,result,search2,result2,...default)
+--expr과 search1을 비교해 두 값이 같으면 result1을,
+--같지 않으면 search2와 비교해 값이 같으면 result2를 반환
+--최종적으로 같은 값이 없으면 default값을 반환한다.
+SELECT DECODE(CHANNEL_ID, 3,'DIRECT'
+                         ,9,'INDIRECT'
+                         ,'OTERS')
+    ,PROD_ID
+FROM SALES ;
+
+SELECT DECODE(CUST_GENDER, 'F', '여자'
+                         , 'M', '남자'
+                         , '??')
+FROM CUSTOMERS;
+--------------------------------------------------------------
+
+/* 오늘의 문제
+고객 테이블(CUSTOMERS)'에는
+고객의 출생년도(cust_year_of_birth) 컬럼이 있다.
+현재일 기준으로 이 컬럼을 활용해 30대, 40대, 50대를 구분해 출력하고,
+나머지 연령대는 '기타'로 출력하는 쿼리를 작성해보자 */
+-----------------------------------------내오답----------------------------------------------
+SELECT CUST_NAME AS "이름"
+     , CUST_YEAR_OF_BIRTH AS "생년"
+     , (TO_char(sysdate, 'YYYY') - CUST_YEAR_OF_BIRTH)
+     ,CASE WHEN (TO_char(sysdate, 'YYYY') - CUST_YEAR_OF_BIRTH) >= 50  THEN '50대'
+      WHEN (TO_char(sysdate, 'YYYY') - CUST_YEAR_OF_BIRTH) < 50
+      and (TO_char(sysdate, 'YYYY') - CUST_YEAR_OF_BIRTH) >= 40  THEN '40대'
+      ELSE (TO_char(sysdate, 'YYYY') - CUST_YEAR_OF_BIRTH) '30대'
+END AS (TO_char(sysdate, 'YYYY') - CUST_YEAR_OF_BIRTH)        
+FROM CUSTOMERS ;
+
+
+,CASE WHEN (TO_char(sysdate, 'YYYY') - CUST_YEAR_OF_BIRTH) >= 50  THEN "30대"
+      WHEN (TO_char(sysdate, 'YYYY') - CUST_YEAR_OF_BIRTH) < 50
+      and (TO_char(sysdate, 'YYYY') - CUST_YEAR_OF_BIRTH) >= 40  THEN "40대"
+      ELSE (TO_char(sysdate, 'YYYY') - CUST_YEAR_OF_BIRTH) "30대"
+      
+SELECT (TO_char(sysdate, 'YYYY') - CUST_YEAR_OF_BIRTH)/10
+from CUSTOMERS;
+
+-----------------------------------------정답----------------------------------------------
+SELECT CUST_NAME
+     , CUST_YEAR_OF_BIRTH
+     , TO_CHAR(SYSDATE, 'YYYY')-CUST_YEAR_OF_BIRTH
+     , DECODE((TRUNC(TO_CHAR(SYSDATE, 'YYYY')-CUST_YEAR_OF_BIRTH, '-1')), '30', '30대', '40', '40대', '50', '50대', '기타')
+FROM CUSTOMERS;
+-------------------------------------------------------------------------------------------
