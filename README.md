@@ -872,6 +872,7 @@ SELECT CUST_NAME
      , DECODE((TRUNC(TO_CHAR(SYSDATE, 'YYYY')-CUST_YEAR_OF_BIRTH, '-1')), '30', '30대', '40', '40대', '50', '50대', '기타')
 FROM CUSTOMERS;
 -------------------------------------------------------------------------------------------
+<<<<<<< HEAD
 ```
 
 ## 📚 4. 그룹퀄리와 집합 연산자 
@@ -882,6 +883,20 @@ FROM CUSTOMERS;
 
 ### 2. GROUP BY, HAVING
 ```sql
+=======
+
+
+
+5장. 그룹커리와 집합 연산자 
+
+1. 기본 집계함수
+
+-  COUNT, AVG, MIN, MAX, VARIANCE, STDDEV
+
+2. GROUP BY
+
+
+>>>>>>> 3f160495283c0ec1a39ce6db4ba63d606981e6ad
 ------------------------- 1.기본 집계 함수 -----------------------   
 SELECT COUNT(*) --쿼리 결과 전체수 반환 
 FROM MEMBER;
@@ -1018,9 +1033,12 @@ WHERE DEPARTMENT_ID IS NOT NULL -- NULL 제외
 GROUP BY DEPARTMENT_ID          -- GROUP BY 절에는 집계함수 제외 
 HAVING count(*) > 10            -- 집계 결과에서 조건을 넣고 싶을 때 HAVING 
 ORDER BY DEPARTMENT_ID ;
+<<<<<<< HEAD
 ```
 ### 3. ROLLUP
 ```sql
+=======
+>>>>>>> 3f160495283c0ec1a39ce6db4ba63d606981e6ad
 
 -------------------------3.ROLLUP-----------------------  
 --ROLLUP : 총합을 표현 
@@ -1066,4 +1084,8 @@ ORDER BY 1 ;
 -- 보이기는 yy로 보이지만 실제 데이터에는 YYYY-MM-DD-HH-MM-SS 까지 다있다. 
 SELECT TO_CHAR(HIRE_DATE,'YYYY-MM-DD')
 FROM EMPLOYEES ;
+<<<<<<< HEAD
 ------------------------------------------------------------- 
+=======
+------------------------------------------------------------- 
+>>>>>>> 3f160495283c0ec1a39ce6db4ba63d606981e6ad
