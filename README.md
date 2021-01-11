@@ -861,3 +861,197 @@ SELECT CUST_NAME
      , DECODE((TRUNC(TO_CHAR(SYSDATE, 'YYYY')-CUST_YEAR_OF_BIRTH, '-1')), '30', '30대', '40', '40대', '50', '50대', '기타')
 FROM CUSTOMERS;
 -------------------------------------------------------------------------------------------
+
+
+
+5장. 그룹커리와 집합 연산자 
+
+1. 기본 집계함수
+
+-  COUNT, AVG, MIN, MAX, VARIANCE, STDDEV
+
+2. GROUP BY
+
+
+------------------------- 1.기본 집계 함수 -----------------------   
+SELECT COUNT(*) --쿼리 결과 전체수 반환 
+FROM MEMBER;
+
+SELECT MAX(MEM_MILEAGE) -- 최댓값
+     , MIN(MEM_MILEAGE) -- 최솟값
+     , AVG(MEM_MILEAGE) -- 평균값 
+     , SUM(MEM_MILEAGE) -- 합 
+FROM MEMBER;
+
+
+--집계함수 
+--count 
+SELECT COUNT(*)                         -- NULL 포함
+     , COUNT(DEPAPRMENT_ID)             -- defualt all
+     , COUNT(ALL DEPARTMENT_ID)         -- 중복 포함
+     , COUNT(DISTINCT DEPARTMENT_ID)    -- 중복 제거 
+FROM EMPLOYEES;
+
+--DISTINCT 중복 제거 
+SELECT DISTINCT COUNTRY_REGION
+FROM COUNTRIES ; 
+
+-----------------------------------------------------------------
+--문제1 : EMPLOYEES 부서 50의 salary의 최소값, 최대값, 인원수 를 출력하시오.
+
+SELECT MAX(SALARY) 
+     , MIN(SALARY)
+     , COUNT(SALARY)
+FROM EMPLOYEES 
+WHERE DEPARTMENT_ID = 50 ;    --컬럼에 있는 데이터 가져올 때 WHERE
+
+-----------------------------------------------------------------
+SELECT ROUND(AVG(COMMISSION_PCT),2)
+     , ROUND(AVG(NVL(COMMISSION_PCT,0)),2) --NULL이 있는 컬럼은 주의!!
+FROM EMPLOYEES;
+
+-----------------------------------------------------------------
+
+SELECT VARIANCE(SALARY) --분산
+     , STDDEV(SALARY)   --표준편차
+FROM employees; 
+
+-------------------------2.GROUP BY 와 HAVING-----------------------  
+--GROUP BY 와 HAVING
+--GROUP BY 절에는 집계함수 이외의 SELECT 절에 있는 컬럼을 써야함. 
+--GROUP BY 구문은 WHERE 과 ORDER BY 절 사이에 위치한다.(특정 그룹을 묶어 데이터 집계가능)
+
+
+SELECT DEPARTMENT_ID
+     , COUNT(*)
+     , SUM(SALARY)
+FROM employees
+GROUP BY department_id  --부서별 
+ORDER BY 1 ; 
+
+
+SELECT MEM_JOB
+     , COUNT(*)
+FROM MEMBER
+GROUP BY MEM_JOB 
+ORDER BY COUNT(*) DESC;
+
+-----------------------------------------------------------------
+--문제2 : CART 테이블에서 member별 cart_prod별 cart_qrt 의 총합을 구하고 
+--총합이 많은 순으로 출력하시오 
+
+SELECT CART_MEMBER
+     , CART_PROD
+     , SUM(CART_QTY)
+FROM CART
+GROUP BY CART_MEMBER, CART_PROD --SELECT에 쓴 절은 GROUP BY 에도 반드시 써야함 (집계함수 제외)
+ORDER BY CART_MEMBER,  SUM(CART_QTY) DESC;
+
+-----------------------------------------------------------------
+--2013년도의 기간별, 지역별 총매출 잔액율을 출력시오(kor_loan_status)
+
+--내가 쓴 답 
+SELECT TRUNC(PERIOD/100) AS 기간
+     , REGION
+     , SUM(LOAN_JAN_AMT) as loan 
+FROM kor_loan_status
+WHERE TRUNC(PERIOD/100) = 2013  
+GROUP BY TRUNC(PERIOD/100), REGION
+ORDER BY 3 DESC;    -- ORDER BY '숫자'는 컬럼 줄 기준으로..
+
+-----------------------------------------------------------------
+--정답 
+SELECT substr(period,1,4)
+     ,region
+     , sum(loan_jan_amt)
+FROM kor_loan_status
+WHERE PERIOD LIKE '2013%'
+GROUP BY substr(period,1,4)
+       , REGION
+HAVING sum(loan_jan_amt) > 100000
+ORDER BY 3 DESC ;
+
+-----------------------------------------------------------------
+--대출 총합이 100,000(HAVING 활용)
+
+SELECT substr(period,1,4)
+     ,region
+     , sum(loan_jan_amt)
+FROM kor_loan_status
+WHERE PERIOD LIKE '2013%'
+GROUP BY substr(period,1,4)
+       , REGION
+ORDER BY 3 DESC ;
+
+-------------------------------------------------------------
+
+-- 문제3 : 부서별 총급여, 사원수, 평균급여 조회(반올림 소수점 2자리까지)
+-- 부서 ID null 제외 정렬은 부서 오름차순
+
+SELECT DEPARTMENT_ID
+     , SUM(SALARY)              -- 총급여 
+     , COUNT(*)                 -- 사원수 
+     , ROUND(AVG(SALARY),2)     -- 평균 급여 소수정 2자리까지 반올림
+FROM EMPLOYEES
+WHERE DEPARTMENT_ID IS NOT NULL -- NULL 제외 
+GROUP BY DEPARTMENT_ID          -- GROUP BY 절에는 집계함수 제외 
+ORDER BY DEPARTMENT_ID ;
+-------------------------------------------------------------
+--HAVING : 집계 결과에서 조건을 넣고 싶을 때 사용 
+--실행순서 : FROM -> GROUP BY -> HAVING -> SELECT -> ORDER BY
+
+SELECT DEPARTMENT_ID
+     , SUM(SALARY)              -- 총급여 
+     , COUNT(*)                 -- 사원수 
+     , ROUND(AVG(SALARY),2)     -- 평균 급여 소수정 2자리까지 반올림
+FROM EMPLOYEES
+WHERE DEPARTMENT_ID IS NOT NULL -- NULL 제외 
+GROUP BY DEPARTMENT_ID          -- GROUP BY 절에는 집계함수 제외 
+HAVING count(*) > 10            -- 집계 결과에서 조건을 넣고 싶을 때 HAVING 
+ORDER BY DEPARTMENT_ID ;
+
+-------------------------3.ROLLUP-----------------------  
+--ROLLUP : 총합을 표현 
+
+SELECT PERIOD 
+     , SUM(LOAN_JAN_AMT) as loan 
+FROM kor_loan_status
+GROUP BY ROLLUP(PERIOD) -- period 별 합과 마지막 총합 출력 
+ORDER BY 1 ;
+
+
+select *
+FROM kor_loan_status ;
+
+-------------------------------------------------------------
+/*
+오늘의 문제
+입사년도별 총급여, 사원수를 조회하는데
+입사한 사원수가 10명 초과였던 년도만 조회하시오 
+마지막 로우는 총합이 나오도록 
+*/
+
+-- 첫번째로 생각한 답 
+SELECT SUBSTR(HIRE_DATE, 1, 2)  AS 연도 
+     , SUM(SALARY)              as 총급여
+     , COUNT(*)                 as 사원수 
+FROM employees 
+GROUP BY ROLLUP(SUBSTR(HIRE_DATE, 1, 2))
+HAVING COUNT(*) > 10
+ORDER BY 1 ;
+
+-- 두 번째로 생각한 답 
+SELECT TO_CHAR(HIRE_DATE, 'YYYY')  AS 연도 
+     , SUM(SALARY)              as 총급여
+     , COUNT(*)                 as 사원수 
+FROM employees 
+WHERE HIRE_DATE IS NOT NULL
+GROUP BY ROLLUP(TO_CHAR(HIRE_DATE, 'YYYY'))
+HAVING COUNT(*) > 10
+ORDER BY 1 ;
+
+------------------------------------------------------------- 
+-- 보이기는 yy로 보이지만 실제 데이터에는 YYYY-MM-DD-HH-MM-SS 까지 다있다. 
+SELECT TO_CHAR(HIRE_DATE,'YYYY-MM-DD')
+FROM EMPLOYEES ;
+------------------------------------------------------------- 
