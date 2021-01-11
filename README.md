@@ -1,6 +1,6 @@
 # 🏄‍♂️SQL(Next IT)
 
-## 📚데이터베이스를 구성하는 객체 이해
+## 📚1. 데이터베이스를 구성하는 객체 이해
 
 ### 1. 데이터베이스 객체
 
@@ -20,7 +20,7 @@
 - NULL : 값이 없음을 의미함, 별도로 지정하지 않으면 해당 컬럼은 NULL을 허용한다, NULL을 허용하지 않으려면 NOT NULL 구문을 명시해야 한다.
 - NOT NULL : NOT NULL 제약조건을 명시하면 해당 컬럼에는 반드시 데이터를 입력해야 한다.
 
-
+```sql
 /*
 table 테이블
 
@@ -33,7 +33,7 @@ table 테이블
 4. 한 테이블에 사용가능한 컬럼은 최대 255개까지다.
 
 */
-
+```
 ```sql
 CREATE TABLE ex2_1 (
 col1 CHAR(10) ,
@@ -188,9 +188,9 @@ ALTER TABLE ex2_10 DROP COLUMN;
 ```
 
 
-##📚 SQL 기본
-### SELECT
-1. SELECT문
+## 📚 2. SQL 기본
+
+### 1. **SELECT문**
 - 가장 기본적인 SQL문으로 테이블이나 뷰에 있는 데이터를 조회할 때 사용
 ```sql
 SELECT*혹은 컬럼
@@ -199,26 +199,30 @@ FROM[스키마.]테이블명 혹은 [스키마.]뷰명
 WHERE 조건
 ORDER BY 컬럼;
 ```
-- WHERE절(어디에서) 어떤 데이터를 가져올 것인가.
-- ORDER BY 정렬이 필요할 때(DESC내림차순, ASC오름차)
+- **WHERE**절(어디에서) 어떤 데이터를 가져올 것인가.
+- **ORDER BY** 정렬이 필요할 때(DESC내림차순, ASC오름차)
 
 ```sql
 SELECT *
 FROM DEP , EMP
 where dep.deptno = emp.dno;
 
--- ALTER 테이블 수정 -----------
+------------ ALTER 테이블 수정 -----------
 
 -- 제컬럼명 수정
 ALTER TABLE ex_210 Rename COLUMN col1 TO col12;
+
 -- 테이블 이름, 널유뮤, 유형 확인
 DESC ex2_10; -- 확인
+
 -- 컬럼 타입 수정
 ALTER TABLE ex2_10 MODIFY col2 VARCHAR2(30);
 DESC ex2_10; -- 확인
+
 -- 컬럼 추가
 ALTER TABLE ex2_10 ADD col3 NUMBER;
 DESC ex2_10; -- 확인
+
 -- 컬럼 삭제
 ALTER TABLE ex2_10 DROP COLUMN;
 
@@ -270,7 +274,7 @@ WHERE a. department_id = b.department_id;
 ```
 
 
-2. INSERT문
+### 2. **INSERT**문
 - 신규 데이터를 입력할 때 사용하는 INSERT문은 크게  컬럼명 생략 형태
 - INSERT ~ SELECT 형태로 나눌 수 있다.
 ```
@@ -305,7 +309,7 @@ WHERE salary > 5000;
 ```
 
 
-3. UPDATE문
+### 3. **UPDATE**문
 - 테이블에 있는 기존 데이터를 수정할 때 사용하는 문장
 ```sql
 UPDATE[스키마.]테이블명
@@ -340,7 +344,7 @@ where NM = '사승원';
 --되돌리고 싶으면 rollback
 ```
 
-4. DELETE, ROLLBACK
+### 4. **DELETE, ROLLBACK**
 - 테이블에 있는 데이터를 삭제할 때 DELETE문을 사용한다.
 ```sql
 select *
@@ -354,16 +358,16 @@ WHERE emp_id =201; 조건에 맞는 데이터 삭제
 select ex3_2
 ```
 
-5. COMMIT : 변경한 데이터를 데이터베이스에 마지막으로 반영하는 역할
+### 5. **COMMIT** : 변경한 데이터를 데이터베이스에 마지막으로 반영하는 역할
 
-6. 의사컬럼 : 테이블의 컬럼처럼 동작하지만 실제로 테이블에 저장되지는 않는 컬럼
+### 6. 의사컬럼 : 테이블의 컬럼처럼 동작하지만 실제로 테이블에 저장되지는 않는 컬럼
 ```sql
 select      rownum
         , a.*
 from employees a;
 ```
 
-7. 연산자
+### 7. 연산자
 ```sql
 --수식연산자
 SELECT employee_id
@@ -414,7 +418,7 @@ SELECT *FROM PRODUCTS where prod_subcategory ='CD-ROM'; > 40 ;
 ```
 
 
-9. 표현식
+### 8. 표현식
 
 ```sql
 
@@ -523,14 +527,14 @@ WHERE CUST_NAME LIKE'Barry%'
 or CUST_NAME LIKE'Ashley%'
 ORDER BY CUST_YEAR_OF_BIRTH DESC;  --asc / desc 구분
 ```
-10. 조건식
+### 9. 조건식
 
 - BETWEEN n1 AND n2 조건식 : 범위에 해당되는 값을 찾을 때 사용
 - IN 조건식 : 조건철에 명시한 값이 포함된 건을 반환하는 ANY와 비슷
 - LIKE 조건식 : 문자열의 패턴을 검색할 때 사용하는 조건식.
 
 
-## 📚 SQL 함수
+## 📚 3. SQL 함수
 
 ### 1. 숫자함수
 - https://docs.oracle.com/cd/B19306_01/server.102/b14200/functions001.htm#i88893
@@ -678,7 +682,9 @@ SELECT mem_mail
     ,substr(mem_mail,1, INSTR(mem_mail, '@')-1) as id   -- 1은 1번째 나오는 것부터 찾는 것
     ,substr(mem_mail,INSTR(mem_mail, '@')+1) as domain  -- -1 +1이 있는 건 @ 앞뒤로 잘라야 돼서
 FROM member;
-
+```
+### 3. 날짜함수 
+```sql
 -----------------------------날짜함수 ---------------------------------
 
 --날짜 함수
@@ -706,7 +712,9 @@ FROM DUAL;
 SELECT ROUND(to_date('20200923'), 'month')  --20/10/01 반올림한 날짜를 반환
      , TRUNC(to_date('20200923'), 'month')  --20/09/01 잘라낸 날짜를 반환
 FROM DUAL;
-
+```
+### 4. 변환함수 
+```sql
 -----------------------------변환함수 ---------------------------------
 
 --변환함수
@@ -790,12 +798,15 @@ select EMPLOYEE_ID AS "사원번호"
 from employees
 WHERE ((SYSDATE - HIRE_DATE)/365) >= 22
 ORDER BY HIRE_DATE ASC ;
+```
 
---------------------------------------------------------------
--- **SELECT문 실행순서**
---from -> where -> group by -> having -> select절 -> order by
---------------------------------------------------------------
+>--------------------------------------------------------------
+>**SELECT문 실행순서**
+>from -> where -> group by -> having -> select절 -> order by
+>--------------------------------------------------------------
 
+### 4. NULL 관련 함수
+```sql
 --NVL(n1, n2)   n1이 null 일 경우 n2로 변환
 
 SELECT employee_id
@@ -861,3 +872,198 @@ SELECT CUST_NAME
      , DECODE((TRUNC(TO_CHAR(SYSDATE, 'YYYY')-CUST_YEAR_OF_BIRTH, '-1')), '30', '30대', '40', '40대', '50', '50대', '기타')
 FROM CUSTOMERS;
 -------------------------------------------------------------------------------------------
+```
+
+## 📚 4. 그룹퀄리와 집합 연산자 
+
+### 1. 기본 집계함수
+
+-  COUNT, AVG, MIN, MAX, VARIANCE, STDDEV
+
+### 2. GROUP BY, HAVING
+```sql
+------------------------- 1.기본 집계 함수 -----------------------   
+SELECT COUNT(*) --쿼리 결과 전체수 반환 
+FROM MEMBER;
+
+SELECT MAX(MEM_MILEAGE) -- 최댓값
+     , MIN(MEM_MILEAGE) -- 최솟값
+     , AVG(MEM_MILEAGE) -- 평균값 
+     , SUM(MEM_MILEAGE) -- 합 
+FROM MEMBER;
+
+
+--집계함수 
+--count 
+SELECT COUNT(*)                         -- NULL 포함
+     , COUNT(DEPAPRMENT_ID)             -- defualt all
+     , COUNT(ALL DEPARTMENT_ID)         -- 중복 포함
+     , COUNT(DISTINCT DEPARTMENT_ID)    -- 중복 제거 
+FROM EMPLOYEES;
+
+--DISTINCT 중복 제거 
+SELECT DISTINCT COUNTRY_REGION
+FROM COUNTRIES ; 
+
+-----------------------------------------------------------------
+--문제1 : EMPLOYEES 부서 50의 salary의 최소값, 최대값, 인원수 를 출력하시오.
+
+SELECT MAX(SALARY) 
+     , MIN(SALARY)
+     , COUNT(SALARY)
+FROM EMPLOYEES 
+WHERE DEPARTMENT_ID = 50 ;    --컬럼에 있는 데이터 가져올 때 WHERE
+
+-----------------------------------------------------------------
+SELECT ROUND(AVG(COMMISSION_PCT),2)
+     , ROUND(AVG(NVL(COMMISSION_PCT,0)),2) --NULL이 있는 컬럼은 주의!!
+FROM EMPLOYEES;
+
+-----------------------------------------------------------------
+
+SELECT VARIANCE(SALARY) --분산
+     , STDDEV(SALARY)   --표준편차
+FROM employees; 
+
+-------------------------2.GROUP BY 와 HAVING-----------------------  
+--GROUP BY 와 HAVING
+--GROUP BY 절에는 집계함수 이외의 SELECT 절에 있는 컬럼을 써야함. 
+--GROUP BY 구문은 WHERE 과 ORDER BY 절 사이에 위치한다.(특정 그룹을 묶어 데이터 집계가능)
+
+
+SELECT DEPARTMENT_ID
+     , COUNT(*)
+     , SUM(SALARY)
+FROM employees
+GROUP BY department_id  --부서별 
+ORDER BY 1 ; 
+
+
+SELECT MEM_JOB
+     , COUNT(*)
+FROM MEMBER
+GROUP BY MEM_JOB 
+ORDER BY COUNT(*) DESC;
+
+-----------------------------------------------------------------
+--문제2 : CART 테이블에서 member별 cart_prod별 cart_qrt 의 총합을 구하고 
+--총합이 많은 순으로 출력하시오 
+
+SELECT CART_MEMBER
+     , CART_PROD
+     , SUM(CART_QTY)
+FROM CART
+GROUP BY CART_MEMBER, CART_PROD --SELECT에 쓴 절은 GROUP BY 에도 반드시 써야함 (집계함수 제외)
+ORDER BY CART_MEMBER,  SUM(CART_QTY) DESC;
+
+-----------------------------------------------------------------
+--2013년도의 기간별, 지역별 총매출 잔액율을 출력시오(kor_loan_status)
+
+--내가 쓴 답 
+SELECT TRUNC(PERIOD/100) AS 기간
+     , REGION
+     , SUM(LOAN_JAN_AMT) as loan 
+FROM kor_loan_status
+WHERE TRUNC(PERIOD/100) = 2013  
+GROUP BY TRUNC(PERIOD/100), REGION
+ORDER BY 3 DESC;    -- ORDER BY '숫자'는 컬럼 줄 기준으로..
+
+-----------------------------------------------------------------
+--정답 
+SELECT substr(period,1,4)
+     ,region
+     , sum(loan_jan_amt)
+FROM kor_loan_status
+WHERE PERIOD LIKE '2013%'
+GROUP BY substr(period,1,4)
+       , REGION
+HAVING sum(loan_jan_amt) > 100000
+ORDER BY 3 DESC ;
+
+-----------------------------------------------------------------
+--대출 총합이 100,000(HAVING 활용)
+
+SELECT substr(period,1,4)
+     ,region
+     , sum(loan_jan_amt)
+FROM kor_loan_status
+WHERE PERIOD LIKE '2013%'
+GROUP BY substr(period,1,4)
+       , REGION
+ORDER BY 3 DESC ;
+
+-------------------------------------------------------------
+
+-- 문제3 : 부서별 총급여, 사원수, 평균급여 조회(반올림 소수점 2자리까지)
+-- 부서 ID null 제외 정렬은 부서 오름차순
+
+SELECT DEPARTMENT_ID
+     , SUM(SALARY)              -- 총급여 
+     , COUNT(*)                 -- 사원수 
+     , ROUND(AVG(SALARY),2)     -- 평균 급여 소수정 2자리까지 반올림
+FROM EMPLOYEES
+WHERE DEPARTMENT_ID IS NOT NULL -- NULL 제외 
+GROUP BY DEPARTMENT_ID          -- GROUP BY 절에는 집계함수 제외 
+ORDER BY DEPARTMENT_ID ;
+-------------------------------------------------------------
+--HAVING : 집계 결과에서 조건을 넣고 싶을 때 사용 
+--실행순서 : FROM -> GROUP BY -> HAVING -> SELECT -> ORDER BY
+
+SELECT DEPARTMENT_ID
+     , SUM(SALARY)              -- 총급여 
+     , COUNT(*)                 -- 사원수 
+     , ROUND(AVG(SALARY),2)     -- 평균 급여 소수정 2자리까지 반올림
+FROM EMPLOYEES
+WHERE DEPARTMENT_ID IS NOT NULL -- NULL 제외 
+GROUP BY DEPARTMENT_ID          -- GROUP BY 절에는 집계함수 제외 
+HAVING count(*) > 10            -- 집계 결과에서 조건을 넣고 싶을 때 HAVING 
+ORDER BY DEPARTMENT_ID ;
+```
+### 3. ROLLUP
+```sql
+
+-------------------------3.ROLLUP-----------------------  
+--ROLLUP : 총합을 표현 
+
+SELECT PERIOD 
+     , SUM(LOAN_JAN_AMT) as loan 
+FROM kor_loan_status
+GROUP BY ROLLUP(PERIOD) -- period 별 합과 마지막 총합 출력 
+ORDER BY 1 ;
+
+
+select *
+FROM kor_loan_status ;
+
+-------------------------------------------------------------
+/*
+오늘의 문제
+입사년도별 총급여, 사원수를 조회하는데
+입사한 사원수가 10명 초과였던 년도만 조회하시오 
+마지막 로우는 총합이 나오도록 
+*/
+
+-- 첫번째로 생각한 답 
+SELECT SUBSTR(HIRE_DATE, 1, 2)  AS 연도 
+     , SUM(SALARY)              as 총급여
+     , COUNT(*)                 as 사원수 
+FROM employees 
+GROUP BY ROLLUP(SUBSTR(HIRE_DATE, 1, 2))
+HAVING COUNT(*) > 10
+ORDER BY 1 ;
+
+-- 두 번째로 생각한 답 
+SELECT TO_CHAR(HIRE_DATE, 'YYYY')  AS 연도 
+     , SUM(SALARY)              as 총급여
+     , COUNT(*)                 as 사원수 
+FROM employees 
+WHERE HIRE_DATE IS NOT NULL
+GROUP BY ROLLUP(TO_CHAR(HIRE_DATE, 'YYYY'))
+HAVING COUNT(*) > 10
+ORDER BY 1 ;
+
+------------------------------------------------------------- 
+-- 보이기는 yy로 보이지만 실제 데이터에는 YYYY-MM-DD-HH-MM-SS 까지 다있다. 
+SELECT TO_CHAR(HIRE_DATE,'YYYY-MM-DD')
+FROM EMPLOYEES ;
+------------------------------------------------------------- 
