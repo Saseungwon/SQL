@@ -875,12 +875,11 @@ FROM CUSTOMERS;
 <<<<<<< HEAD
 ```
 
-## 📚 4. 그룹퀄리와 집합 연산자 
+## 📚 4. 그룹쿼리와 집합 연산자 
 
 ### 1. 기본 집계함수
 
 -  COUNT, AVG, MIN, MAX, VARIANCE, STDDEV
-
 
 ```sql
 ------------------------- 1.기본 집계 함수 -----------------------   
@@ -1070,4 +1069,134 @@ ORDER BY 1 ;
 SELECT TO_CHAR(HIRE_DATE,'YYYY-MM-DD')
 FROM EMPLOYEES ;
 ------------------------------------------------------------- 
+/*  문제1
+부서별 평균 급여를 구하시오(소수점 3째 자리에서 반올림)
+부서 ID 가 NULL 인 데이터 미포함 인원수 5명 이상인 부서 중에서
+평균 급여가 높은 순서로 정렬 (employees 테이블)
+부서 ID, 인원, 급여
+*/
 
+SELECT DEPARTMENT_ID        AS 부서ID
+     , COUNT(*)             as 인원
+     , ROUND(AVG(SALARY),2) as 급여
+FROM EMPLOYEES
+GROUP BY department_id
+HAVING COUNT(*) >= 5   -- ~이상인 부서중엔 HAVING
+ORDER BY 3 DESC;
+---------------------------------------------------------
+```
+### 4. 집합연산자(UNION / UNION ALL / MINUS / INTERSECT)
+```sql
+--UNION 합집합(중복제거) UNION ALL 전체합
+--MINUS 차집합 INTERSECT 교집합 - 컬럼의 수와 타입이 맞아야함.
+
+SELECT SEQ, GOODS
+FROM exp_goods_asia
+WHERE country = '한국'
+UNION ALL -- UNION / UNION ALL / MINUS / INTERSECT
+SELECT 1, GOODS -- 컬럼을 숫자로 써도됨.
+FROM exp_goods_asia
+WHERE country = '일본';
+
+----------------------------------------------------------
+
+--ROLLUP없이 만드는법 UNION으로 만드는 법
+--(결과가 완전히 동일하진 않다.)
+
+SELECT TO_CHAR(HIRE_DATE, 'YYYY')  AS 연도
+     , SUM(SALARY)              as 총급여
+     , COUNT(*)                 as 사원수
+FROM employees
+GROUP BY TO_CHAR(HIRE_DATE, 'YYYY')
+UNION
+SELECT '총합'
+     , SUM(SALARY)
+     , COUNT(*)
+FROM employees;
+```
+
+## 📚 5. 조인과 서브쿼리
+
+### 1. 조인
+- 관계형 데이터베이스에서 SQL을 이용해 관계를 맺는 방법이 조인이다.
+- 테이블 간의 연결고리로 관계를 맺고 데이터를 추출한다.
+
+### 2. 내부 조인(INNER JOIN)과 외부조인(EQUI-JOIN)
+```sql
+
+-- 내부 조인(INNER JOIN), 동등 조인(EQUI-JOIN)
+SELECT *
+FROM MEMBER
+   , CART
+WHERE MEMBER.MEM_ID = CART.CART_member
+AND MEMBER.MEM_ID = 'a001';
+
+-----------------------------------------------------------
+--ex)
+--조인이 되려면 departments.department_id 라는 데이터가 각각의 테이블에 있어야 됨
+
+SELECT employees.employee_id
+     , employees.emp_name
+     , employees.salary
+     , employees.department_id
+     , departments.department_name
+FROM employees
+   , departments
+WHERE employees.department_id = departments.department_id
+AND employees.EMPLOYEE_ID ='198';
+
+-----------------------------------------------------------
+--둘다 있는 컬럼들은 별칭을 무조건 써줘야 한다. 안 써주면 오류생김
+--근데 통일성 있게 다른 컬럼들도 써주는 것이 좋다.
+
+SELECT a.employee_id
+     , a.emp_name
+     , a.salary
+     , a.department_id
+     , b.manager_id
+     , b.department_name
+FROM employees a        -- from 절에서 별칭을 지정하면
+   , departments b      -- 다른졸에서는 별칭으로만 접근
+WHERE a.department_id = b.department_id;    --이퀄조인
+
+-----------------------------------------------------------
+/*
+외부조인(OUTER JOIN)
+조인조건을 만족하는 데이터뿐 아니라, 어느 한 쪽 테이블에 조인 조건에
+명시된 컬럼에 값이 없거나(NULL이라도) 해당 로우가 아예 없더라도
+데이터를 모두 추출한다. (+)를 뒤에 써준 컬럼에 NULL이 나옴
+*/
+
+SELECT COUNT(*)
+FROM EMPLOYEES
+   , DEPARTMENTS
+   , JOB_HISTORY
+WHERE employees.department_id = departments.department_id
+AND   departments.department_id = JOB_HISTORY.DEPARTMENT_ID ;
+
+-----------------------------------------------------
+--테이블 만드는 법..
+
+CREATE TABLE ADDR (
+    NM VARCHAR2(30)
+    , AGE NUMBER
+    , CODE VARCHAR2(30)
+    );
+    
+CREATE TABLE hobby (
+     CODE VARCHAR2(30)
+     ,code_nm VARCHAR2(30)
+    );
+
+-----------------------------------------------------------
+--외부조인(OUTER JOIN)
+
+INSERT INTO ADDR VALUES(펭수,ID,A100);
+
+SELECT *
+FROM ADDR
+    ,HOBBY
+WHERE ADDR.CODE(+) = HOBBY.CODE;
+-- (+) 있는쪽 데이터가 NULL 생김
+-- (+) 없는쪽한테 있는쪽이 맞춰주는 거라고 생각.
+-----------------------------------------------------------
