@@ -1200,3 +1200,294 @@ WHERE ADDR.CODE(+) = HOBBY.CODE;
 -- (+) 있는쪽 데이터가 NULL 생김
 -- (+) 없는쪽한테 있는쪽이 맞춰주는 거라고 생각.
 -----------------------------------------------------------
+```
+
+
+- 데이터 넣는 방법과 PK..
+
+```sql
+ALTER TABLE 학생 ADD CONSTRAINT PK_학생_학번 PRIMARY KEY (학번);
+ALTER TABLE 과목 ADD CONSTRAINT PK_과목_과목번호 PRIMARY KEY(과목번호);
+ALTER TABLE 교수 ADD CONSTRAINT PK_교수_교수번호 PRIMARY KEY(교수번호);
+
+ALTER TABLE 강의내역 ADD CONSTRAINT PK_강의내역_내역번호 PRIMARY KEY(강의내역번호);
+ALTER TABLE 수강내역 ADD CONSTRAINT PK_수강내역_내역번호 PRIMARY KEY(수강내역번호);
+
+     
+        ALTER TABLE 수강내역
+        ADD CONSTRAINT FK_학생_학번 FOREIGN KEY(학번)
+        REFERENCES 학생(학번);
+        
+        ALTER TABLE 수강내역
+        ADD CONSTRAINT FK_과목_과목번호 FOREIGN KEY(과목번호)
+        REFERENCES 과목(과목번호);
+        
+        ALTER TABLE 강의내역
+        ADD CONSTRAINT FK_교수_교수번호 FOREIGN KEY(교수번호)
+        REFERENCES 교수(교수번호);
+        
+        ALTER TABLE 강의내역
+        ADD CONSTRAINT FK_강의_과목번호 FOREIGN KEY(과목번호)
+        REFERENCES 과목(과목번호);
+        
+        
+/*       강의내역, 과목, 교수, 수강내역, 학생 테이블을 만드시고 아래와 같은 제약 조건을 준 뒤
+             '학생' 테이블의 PK 키를  '학번'으로 잡아준다
+             '수강내역' 테이블의 PK 키를 '수강내역번호'로 잡아준다
+             '과목' 테이블의 PK 키를 '과목번호'로 잡아준다
+             '교수' 테이블의 PK 키를 '교수번호'로 잡아준다
+             '강의내역'의 PK를 '강의내역번호'로 잡아준다.
+             '학생' 테이블의 PK를 '수강내역' 테이블의 '학번' 컬럼이 참조한다 FK 키 설정
+             '과목' 테이블의 PK를 '수강내역' 테이블의 '과목번호' 컬럼이 참조한다 FK 키 설정
+             '교수' 테이블의 PK를 '강의내역' 테이블의 '교수번호' 컬럼이 참조한다 FK 키 설정
+             '과목' 테이블의 PK를 '강의내역' 테이블의 '과목번호' 컬럼이 참조한다 FK 키 설정
+            각 테이블에 엑셀 데이터를 임포트
+
+    ex) ALTER TABLE 학생 ADD CONSTRAINT PK_학생_학번 PRIMARY KEY (학번);
+        
+        ALTER TABLE 수강내역
+        ADD CONSTRAINT FK_학생_학번 FOREIGN KEY(학번)
+        REFERENCES 학생(학번);
+        ALTER TABLE 테이블명 MODIFY (컬럼명 테이터타입(데이터길이));
+*/
+
+----------------------------------------------------------
+
+SELECT *
+FROM 학생 ;
+
+SELECT *
+FROM 학생, 수강내역
+--Inner join
+WHERE 학생.학번 = 수강내역.학번
+AND 학생.이름 ='양지운' ;
+
+--Outer join
+SELECT *
+FROM 학생, 수강내역
+where 학생.학번 = 수강내역.학번(+)
+and 학생.이름 = '양지운';
+
+--학생들의 수강내역 건수를 조회하시오
+--이름, 학번, 수강건수
+
+SELECT 학생.이름
+     , 학생.학번
+     , COUNT(수강내역.수강내역번호)
+FROM 학생, 수강내역
+WHERE 학생.학번 = 수강내역.학번(+)
+GROUP BY 학생.이름
+       , 학생.학번
+ORDER by 3 desc;
+
+---------------------------------------
+--교수의 강의 건수를 출력하시오
+--교수이름, 교수학위, 교수주소, 강의건수
+
+SELECT 교수.교수이름
+     , 교수.학위
+     , 교수.주소
+     , COUNT(강의내역.강의내역번호)
+FROM 교수          --SELECT에서 사용한 테이블명
+   , 강의내역
+WHERE 교수.교수번호 = 강의내역.교수번호(+)
+GROUP BY 교수.교수이름
+       , 교수.학위
+       , 교수.주소  --GROUP BY 는 SELECT에서 집계함수를 제외한 컬럼 모두 써라
+ORDER BY 4 desc ;
+
+/*
+1. 조인 조건 모두에 (+) 붙여아 함.
+2. (+) 붙은 조건과 OR 사용할 수 없다.
+3. 한 번에 한 테이블에만 외부조인 가능
+*/
+SELECT 학생.이름
+     , 학생.학번
+     , 수강내역.수강내역번호
+     , 수강내역.과목번호
+     , 과목.과목번호
+FROM 학생, 수강내역, 과목
+WHERE 학생.학번 = 수강내역.학번(+)
+and 수강내역.과목번호 = 과목.과목번호(+) --OR 사용불가능
+ORDER by 3 desc;
+```
+### 3. 서브쿼리 
+- 서브쿼리 : SUB QUERY SQL 문장 안에 보조로 사용되는 또 다른 SELECT 문
+
+- 메인 쿼리와 연관성에 따라
+  1. 연관성 없는 쿼리, 
+  2. 있는 서브쿼리
+
+- 형태에 따라
+   1. 일반서브쿼리(SELECT절) --스칼라 서브쿼리
+   2. 인라인 뷰(FROM절)
+   3. 중첩 쿼리(WHERE절)
+
+    #### (1) 일반 서브쿼리(스칼라 서브쿼리)
+```sql
+
+1. 일반 서브쿼리(SELECT절에 위치) 스칼라 서브쿼리-select 안에 또 다른 select
+
+select a.emp_name
+     , a.employee_id
+     , a.department_id
+     , (select department_name
+        from departments
+        where department_id = a.department_id
+        ) as 현재101부서
+from employees a
+where a.employee_id = 101 ;
+
+
+---------------------------------------
+SELECT 학생.이름
+     , 학생.학번
+     , 수강내역.수강내역번호
+     , (SELECT 과목이름
+        FROM 과목
+        WHERE 과목.과목번호 = 수강내역.과목번호) as 과목이름
+FROM 학생
+   , 수강내역, 과목
+WHERE 학생.학번 = 수강내역.학번(+)
+ORDER by 3 desc;
+```
+ #### (2) 인라인 뷰
+```sql
+2. 인라인 뷰(FROM 절에 위치)
+SELECT *
+FROM(
+    SELECT
+            ROWNUM AS rnum -- 테이블에 없는 걸 넘버링 할 때 사용
+            ,a.*
+            FROM 학생 a
+            ORDER BY a.학번 desc
+            )T1 --- 서브쿼리를 하나의 테이블 처럼
+WHERE T1.RNUM  BETWEEN 1 and 10 ; --로우넘에서 1~10 사이를 조회
+
+------------------------------------------------------------
+SELECT *
+FROM(
+        SELECT rownum as rnum
+        , T1.*
+        FROM(
+              SELECT 교수.교수이름
+                        , 교수.학위
+                        , 교수.주소
+            , COUNT(강의내역.강의내역번호)
+              FROM 교수          --SELECT에서 사용한 테이블명
+                 , 강의내역
+              WHERE 교수.교수번호 = 강의내역.교수번호(+)
+              GROUP BY 교수.교수이름
+                     , 교수.학위
+                     , 교수.주소  --GROUP BY 는 SELECT에서 집계함수를 제외한 컬럼 모두 써라
+              ORDER BY 4 desc
+) T1
+) T2
+WHERE T2.RNUM = 2 ;
+```
+ #### (3) 중첩쿼리
+```sql  
+
+-------------------------------------------------------------
+
+--연결성 없는 서브쿼리 메인쿼리와 연관성이 없고
+--3.(중첩쿼리) 서브쿼리에서 평균 급여를 구한뒤 메인 쿼리에 평균 값보다 큰 사원 조회
+
+SELECT count(*)
+FROM employees
+WHERE salary >= (SELECT AVG(salary)
+                FROM employees);
+                
+
+-------------------------------------------------------------
+SELECT *
+FROM(
+    SELECT rownum as rnum
+        , T1.*
+    FROM(
+        SELECT 교수.교수이름
+     , 교수.학위
+     , 교수.주소
+     , COUNT(강의내역.강의내역번호)
+FROM 교수          --SELECT에서 사용한 테이블명
+   , 강의내역
+WHERE 교수.교수번호 = 강의내역.교수번호(+)
+GROUP BY 교수.교수이름
+       , 교수.학위
+       , 교수.주소  --GROUP BY 는 SELECT에서 집계함수를 제외한 컬럼 모두 써라
+ORDER BY 4 desc
+) T1
+) T2
+WHERE T2.RNUM = 2 ;
+                
+-------------------------------------------------------------
+--employees의 아이디, 이름, 월급, 직업이름
+--을 조회하는데 '100부서의 평균 월급'보다 월급을 많이 받는
+--월급이 큰 순으로 상위 10명을 조회 하시오
+-------------------------내 오답------------------------------
+select *
+from(
+select rownum as rnum
+    , T1.*
+    from(
+            select EMPLOYEE_ID
+                 , EMP_NAME
+                 , SALARY
+                 , JOB_ID
+            from employees
+            where DEPARTMENT_ID = 100
+            GROUP BY EMPLOYEE_ID
+                   , EMP_NAME
+                   , SALARY
+                   , JOB_ID
+            having AVG(DEPARTMENT_ID(salary))
+            order by 3 desc    
+)T1
+)T2
+WHERE T2 rnum between 1 and 10 ;
+
+--------------------------정답-----------------------------
+
+select *
+from
+    (select t1.*
+         , rownum as rnum
+    from (
+            select a.employee_id
+                 , a.emp_name
+                 , a.salary
+                 , b.job_title  
+              from employees a, jobs b  
+             where a.job_id = b.job_id
+             and a.salary > (SELECT AVG(salary)
+                             FROM employees
+                             where department_id =100 )
+             order by a.salary desc
+        )t1
+    )t2
+where t2.rnum between 1 and 10 ;
+```
+```sql
+---------------------------------------------------------------
+--오늘의 문제
+--employees 테이블 부서 id가 있는 데이터에서 조회
+-- 부서별, 입사월별 사원수, 총급여(중요), employees 테이블, hire_date, salary 컬럼 이용
+
+SELECT DEPARTMENT_ID AS 부서명
+     , SUM(DECODE(TO_CHAR(HIRE_DATE, 'MM'),'01', 1, 0)) AS "1월"
+     , SUM(DECODE(TO_CHAR(HIRE_DATE, 'MM'),'02', 1, 0)) AS "2월"
+     , SUM(DECODE(TO_CHAR(HIRE_DATE, 'MM'),'03', 1, 0)) AS "3월"
+     , SUM(DECODE(TO_CHAR(HIRE_DATE, 'MM'),'04', 1, 0)) AS "4월"
+     , SUM(DECODE(TO_CHAR(HIRE_DATE, 'MM'),'05', 1, 0)) AS "5월"
+     , SUM(DECODE(TO_CHAR(HIRE_DATE, 'MM'),'06', 1, 0)) AS "6월"
+     , SUM(DECODE(TO_CHAR(HIRE_DATE, 'MM'),'07', 1, 0)) AS "7월"
+     , SUM(DECODE(TO_CHAR(HIRE_DATE, 'MM'),'08', 1, 0)) AS "8월"
+     , SUM(DECODE(TO_CHAR(HIRE_DATE, 'MM'),'09', 1, 0)) AS "9월"
+     , SUM(DECODE(TO_CHAR(HIRE_DATE, 'MM'),'10', 1, 0)) AS "10월"
+     , SUM(DECODE(TO_CHAR(HIRE_DATE, 'MM'),'11', 1, 0)) AS "11월"
+     , SUM(DECODE(TO_CHAR(HIRE_DATE, 'MM'),'12', 1, 0)) AS "12월"
+     , SUM(SALARY) AS 총급여
+FROM EMPLOYEES
+GROUP BY ROLLUP(DEPARTMENT_ID)
+ORDER BY 1 ASC ;
+-------------------------------------------------------------------    
