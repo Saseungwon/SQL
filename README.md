@@ -1491,3 +1491,134 @@ FROM EMPLOYEES
 GROUP BY ROLLUP(DEPARTMENT_ID)
 ORDER BY 1 ASC ;
 -------------------------------------------------------------------    
+-- 오늘 문제
+-- sales 테이블에서 년도별 상품 매출액(amount_sold)을
+-- 일요일부터 월요일까지 구분해 출력하시오
+--날짜 일요일, 월요일, 화요일, 수요일, 목요일, 금요일, 토요일, 년합의 매출을 구하시오
+-------------------------------------------------------------
+--내 오답
+SELECT    TO_CHAR(SALES_DATE, 'YYYY')
+        ,DECODE(TO_CHAR(SALES_DATE, 'D'),'1', amount_sold, 0) as 일요일
+        ,DECODE(TO_CHAR(SALES_DATE, 'D'),'2', amount_sold, 0) as 월요일
+        ,DECODE(TO_CHAR(SALES_DATE, 'D'),'3', amount_sold, 0) as 화요일
+        ,DECODE(TO_CHAR(SALES_DATE, 'D'),'4', amount_sold, 0) as 수요일
+        ,DECODE(TO_CHAR(SALES_DATE, 'D'),'5', amount_sold, 0) as 목요일
+        ,DECODE(TO_CHAR(SALES_DATE, 'D'),'6', amount_sold, 0) as 금요일
+        ,DECODE(TO_CHAR(SALES_DATE, 'D'),'7', amount_sold, 0) as 토요일
+FROM SALES
+GROUP BY sales_date, amount_sold
+ORDER BY 1 ASC;
+
+-----------------------------------------------------------------------------------------
+-- 정답
+SELECT   TO_CHAR(SALES_DATE, 'YYYY') 날짜
+        ,TO_CHAR(SUM(DECODE(TO_CHAR(SALES_DATE, 'D'),'1', amount_sold, 0)),'999,999,999,999') 일요일
+        ,TO_CHAR(SUM(DECODE(TO_CHAR(SALES_DATE, 'D'),'2', amount_sold, 0)),'999,999,999,999') 월요일
+        ,TO_CHAR(SUM(DECODE(TO_CHAR(SALES_DATE, 'D'),'3', amount_sold, 0)),'999,999,999,999') 화요일
+        ,TO_CHAR(SUM(DECODE(TO_CHAR(SALES_DATE, 'D'),'4', amount_sold, 0)),'999,999,999,999') 수요일
+        ,TO_CHAR(SUM(DECODE(TO_CHAR(SALES_DATE, 'D'),'5', amount_sold, 0)),'999,999,999,999') 목요일
+        ,TO_CHAR(SUM(DECODE(TO_CHAR(SALES_DATE, 'D'),'6', amount_sold, 0)),'999,999,999,999') 금요일
+        ,TO_CHAR(SUM(DECODE(TO_CHAR(SALES_DATE, 'D'),'7', amount_sold, 0)),'999,999,999,999') 토요일
+FROM SALES
+GROUP BY ROLLUP (TO_CHAR(SALES_DATE, 'YYYY')) ;
+
+---------------------------------------------------------------
+--연관성 있는 서브쿼리
+--메인쿼리와 연관성 있는 서브쿼리 (세미 조인 semi-join)
+--서브쿼리를 사용해 서브쿼리에 존재하는 데이터만 메인쿼리에서 추출하는 조인방법
+SELECT a.department_id
+     , a. department_name
+FROM departments a
+WHERE EXISTS(SELECT 1
+                FROM job_history b
+                WHERE a.department_id = b.department_id);
+
+----------------------------------------------------------------
+--학생 테이블에서 수강이력이 없는
+--학생의 정보만 모두 조회하시오
+
+--첫번째 방법
+select *
+--       a.학번    --모두 부를때는 *를 하면 된다.
+--     , a.이름
+--     , a.주소
+--     , a.부전공
+--     , a.생년월일
+--     , a.학기
+--     , a.평점
+from 학생 a
+where not exists(select 1
+                    from 수강내역 b
+                    where a.학번 = b.학번) ;
+----------------------------------------------------------------                    
+--두번째 방법                     
+select *
+from 학생
+where 학생.학번 not in (select 수강내역.학번
+                    from 수강내역) ;                    
+
+--------------------------------------------------------------
+--문제1
+--학생의 정보를 출력하시오
+--이름, 학번, 전공, 부전공, 수강과목명
+
+select 학생.이름
+     , 학생.학번
+     , 학생.전공
+     , 학생.부전공
+     , (select 과목이름
+        from 과목
+        where 과목.과목번호 = 수강내역.과목번호)as 과목명
+from 학생, 수강내역, 과목
+where 학생.학번 = 수강내역.학번(+)
+and 수강내역.과목번호 = 과목.과목번호(+) ;
+
+--------------------------------------------------------------
+--문제2
+--학생정보의 전공, 부전공, 전체 수강건수, 전체 이수학점 을 출력하시오
+
+select 학생.이름
+     , 학생.전공
+     , 학생.부전공
+     , COUNT(수강내역.수강내역번호) -- 컬럼 먼저 써놓고  
+     , SUM(과목.학점)             -- 밑에 where에다가  =
+from 학생, 수강내역, 과목
+where 수강내역.학번(+) = 학생.학번
+and 과목.과목번호(+) = 수강내역.과목번호
+group by 학생.이름
+, 학생.전공
+, 학생.부전공
+order by 4 desc ;
+
+--------------------------------------------------------------
+--문제3
+--가장 많이 구매한 amount_sold
+--사람의 구매이력정보를 출력하시오(customers, sales, products)활용
+--이름, 카테고리, 서브카테고리, 금액합계
+
+--- 가장 많이 구매한 사람 찾는 쿼리
+select a.cust_id
+, SUM(nvl(b.amount_sold,0))      --nvl(n1,n2)   n1이 null일 경우 n2로 변환
+from customers a
+   , sales b   
+where a.cust_id = b.cust_id(+)
+group by a.cust_id
+order by 2 desc;
+
+---
+select  a.CUST_NAME             --컬럼 내에 같은 이름을 가진 데이터를 합치려면
+      , c.PROD_CATEGORY         --select에서 같은 이름을 가진 데이터를 합치면
+      , c.PROD_SUBCATEGORY      --나오는 옆 컬럼을 sum으로 묶어주고
+      , sum(b.amount_sold)      --group by 에서는 sum으로 묶은 컬럼은 제외하고 작성
+from customers a
+   , sales b   
+   , products c
+where a.cust_id = 11407
+and a.cust_id = b.cust_id(+)
+and b.PROD_ID = c.PROD_ID(+)
+group by a.CUST_NAME
+        , c.PROD_CATEGORY
+        , c.PROD_SUBCATEGORY
+order by 2 asc;
+        
+--------------------------------------------------------------
