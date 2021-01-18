@@ -1323,7 +1323,7 @@ ORDER by 3 desc;
    2. 인라인 뷰(FROM절)
    3. 중첩 쿼리(WHERE절)
 
-    #### (1) 일반 서브쿼리(스칼라 서브쿼리)
+#### (1) 일반 서브쿼리(스칼라 서브쿼리)
 ```sql
 
 1. 일반 서브쿼리(SELECT절에 위치) 스칼라 서브쿼리-select 안에 또 다른 select
@@ -1621,4 +1621,483 @@ group by a.CUST_NAME
         , c.PROD_SUBCATEGORY
 order by 2 asc;
         
---------------------------------------------------------------
+```
+## 🚦 테스트 
+```sql
+-----------------------------테스트------------------------------------
+--내 답...
+-----------1번 문제 ---------------------------------------------------
+--ITEM 테이블에서 카테고리 아이디가 FOOD인 것만 출력하시오.
+SELECT CATEGORY_ID
+     , PRODUCT_NAME
+     , PRODUCT_DESC
+FROM ITEM
+WHERE category_id LIKE 'FOOD' ;
+-----------------------------------------------------------------------
+-----------2번 문제 ---------------------------------------------------
+/*
+CUSTOMER 테이블에서 출생년도가 1996년 부터 조회하시오 (1996 ~ 2020)
+MAIL_ID 컬럼은 이메일 앞부분@
+MAIL_DOMAIN 컬럼은 이메일 @뒷부분
+REG_DATE, BIRTH 은 'YYYY-MM-DD'형태로
+*/
+
+SELECT CUSTOMER_NAME
+     , PHONE_NUMBER
+     , SUBSTR(EMAIL, 1, INSTR(EMAIL, '@')-1) AS MAIL_ID
+     , SUBSTR(EMAIL, INSTR(EMAIL, '@')+1) AS MAIL_DOMAIN
+     , TO_CHAR(FIRST_REG_DATE, 'YYYY-MM-DD') AS REG_DATE
+     , DECODE(SEX_CODE, 'F', '여자', 'M', '남자') AS SEX_NM
+     , TO_CHAR(TO_DATE(BIRTH), 'YYYY-MM-DD') AS BIRTH
+     , REPLACE(TO_CHAR(ZIP_CODE, '999,999'), ',', '-')
+FROM CUSTOMER
+WHERE TO_CHAR(TO_DATE(BIRTH), 'YYYY') >= 1996
+ORDER BY 5 ASC;
+
+
+-----------------------------------------------------------------------
+-----------3번 문제 ---------------------------------------------------
+/*
+CUSTOMER에 있는 회원의 ZIP_CODE를 활용하여
+서울의 구별로 남자,여자,회원정보없는,전체 인원 수를 출력하시오
+*/
+
+
+SELECT ADDRESS.ADDRESS_DETAIL                             AS ZIP_NM
+     , SUM(DECODE(TO_CHAR(CUSTOMER.SEX_CODE), 'M', 1, 0)) AS 남자회원
+     , SUM(DECODE(TO_CHAR(CUSTOMER.SEX_CODE), 'F', 1, 0)) AS 여자회원
+     , SUM(DECODE(TO_CHAR(CUSTOMER.SEX_CODE), '', 1, 0))  AS 성별없음
+     , COUNT(*)                                           AS 전체
+FROM CUSTOMER
+   , ADDRESS
+WHERE CUSTOMER.ZIP_CODE = ADDRESS.ZIP_CODE
+GROUP BY ADDRESS.ADDRESS_DETAIL
+ORDER BY 5 DESC;
+
+
+-----------------------------------------------------------------------
+-----------4번 문제 ---------------------------------------------------
+/*
+고객별 지점 방문횟수와 방문객의 합을 출력하시오
+방문횟수가 4번이상만 조회 (예약 취소건 제외)
+*/
+
+
+SELECT CUSTOMER.CUSTOMER_ID
+     , CUSTOMER.CUSTOMER_NAME
+     , RESERVATION.BRANCH
+     , COUNT(RESERVATION.BRANCH)
+     , SUM(RESERVATION.VISITOR_CNT)
+FROM CUSTOMER, RESERVATION
+WHERE CUSTOMER.CUSTOMER_ID = RESERVATION.CUSTOMER_ID
+and RESERVATION.CANCEL = 'N'      -- 제외할 항목은 where and에서 제외하고 조회  
+GROUP BY CUSTOMER.CUSTOMER_ID
+       , CUSTOMER.CUSTOMER_NAME
+       , RESERVATION.BRANCH
+HAVING COUNT(RESERVATION.BRANCH) >= 4
+ORDER BY 4 DESC, 5 DESC   ;       -- 정렬은 여러 개 놓을 수 있다.(앞에 놓은 게 우선)
+       
+-----------------------------------------------------------------------
+-----------5번 문제 ---------------------------------------------------
+/*
+    4번 문제에서 가장많이 동일지점에 방문한 1명만 출력하시오
+*/
+
+SELECT *
+FROM(
+    SELECT ROWNUM AS RNUM
+        , T1. *
+    FROM(
+        SELECT  CUSTOMER.CUSTOMER_ID
+              , COUNT(RESERVATION.BRANCH)
+        FROM CUSTOMER
+            ,RESERVATION
+            WHERE CUSTOMER.CUSTOMER_ID = RESERVATION.CUSTOMER_ID
+            GROUP BY CUSTOMER.CUSTOMER_ID
+            ORDER BY 2 DESC
+) T1
+) T2
+WHERE T2. RNUM = 1 ;
+
+W1338910
+
+
+-----------------------------------------------------------------------
+-----------6번 문제 ---------------------------------------------------
+/*
+5번 문제 고객의 구매 품목별 합산금액을 출력하시오(5번문제의 쿼리를 활용하여)
+*/
+
+------------------오류 나오는데 왜 나오는지 모르겠습니다..-------------------
+SELECT ITEM.PRODUCT_NAME
+     , SUM(ITEM.PRICE)
+FROM ITEM
+WHERE RESERVATION.CUSTOMER_ID = 'W1338910'
+AND RESERVATION.RESERV_NO = ORDER_INFO.RESERV_NO
+AND ORDER_INFO.ITEM_ID = ITEM.ITEM_ID
+GROUP BY ITEM.PRODUCT_NAME
+ORDER BY 2 DESC ;
+
+---------------------------------------------------------------------
+
+```
+## 🚦 테스트 정답 
+```sql
+-- 문제 정답
+---------------------------------------------------------------------
+/*
+ user 를 (유저이름/비번 study/study)생성하고 권한을 주고(어제 안했다면)
+ create_table 스크립트를 실해하여
+ 테이블 생성후 1~ 5 데이터를 임포트한 뒤
+ 아래 문제를 출력하시오
+ (문제에 대한 출력물은 이미지 참고)
+*/
+
+-----------1번 문제 --------------------------------------------------
+ITEM 테이블에서 카테고리 아이디가 FOOD인 것만 출력하시오.
+---------------------------------------------------------------------
+SELECT CATEGORY_ID
+     , PRODUCT_NAME
+     , PRODUCT_DESC
+FROM ITEM
+WHERE CATEGORY_ID = 'FOOD';
+
+-----------2번 문제 ---------------------------------------------------
+CUSTOMER 테이블에서 출생년도가 1996년 부터 조회하시오 (1996 ~ 2020)
+MAIL_ID 컬럼은 이메일 @앞부분
+MAIL_DOMAIN 컬럼은 이메일 @뒷부분
+REG_DATE, BIRTH 은 'YYYY-MM-DD'형태로
+---------------------------------------------------------------------
+
+SELECT CUSTOMER_NAME
+     , PHONE_NUMBER
+     , SUBSTR(EMAIL, 0 ,INSTR(EMAIL,'@')-1) AS MAIL_ID
+     , SUBSTR(EMAIL,INSTR(EMAIL,'@')+1) AS MAIL_DOMAIN
+     , TO_CHAR(FIRST_REG_DATE,'YYYY-MM-DD') AS REG_DATE
+     , DECODE(SEX_CODE, 'M','남자', 'F', '여자') AS SEX_NM
+     , SUBSTR(BIRTH,1,4) || '-' ||SUBSTR(BIRTH,5,2) || '-' ||SUBSTR(BIRTH,7) AS BIRTH
+     , SUBSTR(ZIP_CODE,0,3) || '-' || SUBSTR(ZIP_CODE,4) AS ZIPCODE
+FROM CUSTOMER
+WHERE TO_NUMBER(SUBSTR(BIRTH, 1,4)) > 1995
+ORDER BY FIRST_REG_DATE ASC;
+
+
+
+-----------3번 문제 ---------------------------------------------------
+CUSTOMER에 있는 회원의 ZIP_CODE를 활용하여
+서울의 구별로 남자,여자,회원정보없는,전체 인원 수를 출력하시오
+---------------------------------------------------------------------
+
+SELECT (SELECT ADDRESS_DETAIL FROM ADDRESS WHERE ZIP_CODE = T1.ZIP_CODE ) AS ZIP_NM
+     ,  T1.M_CNT AS 남자회원
+     ,  T1.F_CNT AS 여자회원
+     ,  T1.NULL_CNT AS 성별없음
+     ,  T1.CNT AS 전체
+FROM (
+        SELECT  ZIP_CODE
+              , SUM(DECODE(SEX_CODE, 'M', 1, 0)) AS M_CNT
+              , SUM(DECODE(SEX_CODE, 'F', 1, 0)) AS F_CNT
+              , SUM(DECODE(SEX_CODE,  NULL, 1, 0)) AS NULL_CNT
+              , COUNT(*) AS CNT
+        FROM CUSTOMER
+        GROUP BY ZIP_CODE
+        ORDER BY 5 DESC
+    ) T1;
+
+
+-----------4번 문제 ---------------------------------------------------
+-- 고객별 지점 방문횟수와 방문객의 합을 출력하시오
+-- 방문횟수가 4번이상만 조회 (예약 취소건 제외)
+---------------------------------------------------------------------
+    SELECT A.CUSTOMER_ID
+         , A.CUSTOMER_NAME
+         , B.BRANCH
+         , COUNT(B.BRANCH) BRANCH_CNT
+         , SUM(B.VISITOR_CNT) VISITOR_SUM_CNT
+    FROM CUSTOMER A
+        ,RESERVATION B
+    WHERE A.CUSTOMER_ID = B.CUSTOMER_ID
+    AND B.CANCEL = 'N'
+    GROUP BY A.CUSTOMER_ID  
+           , A.CUSTOMER_NAME
+           , B.BRANCH
+    HAVING COUNT(B.BRANCH)>= 4
+    ORDER BY 4 DESC,5 DESC;
+
+
+-----------5번 문제 ---------------------------------------------------
+5번 문제에서 가장많이 동일지점에 방문한 1명만 출력하시오
+---------------------------------------------------------------------
+    SELECT CUSTOMER_ID
+    FROM (
+            SELECT A.CUSTOMER_ID
+                 , A.CUSTOMER_NAME
+                 , B.BRANCH
+                 , COUNT(B.BRANCH) BRANCH_CNT
+                 , SUM(B.VISITOR_CNT) SUM_CNT
+            FROM CUSTOMER A
+                ,RESERVATION B
+            WHERE A.CUSTOMER_ID = B.CUSTOMER_ID
+            AND B.CANCEL = 'N'
+            GROUP BY A.CUSTOMER_ID  
+                   , A.CUSTOMER_NAME
+                   , B.BRANCH
+            ORDER BY COUNT(B.BRANCH) DESC
+            ) T1
+    WHERE ROWNUM = 1;
+    
+    
+
+-----------6번 문제 ---------------------------------------------------
+5번 문제 고객의 구매 품목별 합산금액을 출력하시오(5번문제의 쿼리를 활용하여)
+---------------------------------------------------------------------
+SELECT (SELECT PRODUCT_NAME
+        FROM ITEM
+        WHERE ITEM_ID = T1.ITEM_ID) AS CATEGORY
+      , SUM(T1.SALES) AS SUM_SALES
+FROM ORDER_INFO T1
+WHERE T1.RESERV_NO IN (SELECT RESERV_NO
+                       FROM RESERVATION
+                       WHERE CANCEL = 'N'
+                       AND CUSTOMER_ID = (SELECT CUSTOMER_ID
+                                            FROM (
+                                                    SELECT A.CUSTOMER_ID
+                                                         , A.CUSTOMER_NAME
+                                                         , B.BRANCH
+                                                         , COUNT(B.BRANCH) BRANCH_CNT
+                                                         , SUM(B.VISITOR_CNT) SUM_CNT
+                                                    FROM CUSTOMER A
+                                                        ,RESERVATION B
+                                                    WHERE A.CUSTOMER_ID = B.CUSTOMER_ID
+                                                    AND B.CANCEL = 'N'
+                                                    GROUP BY A.CUSTOMER_ID  
+                                                           , A.CUSTOMER_NAME
+                                                           , B.BRANCH
+                                                    ORDER BY COUNT(B.BRANCH) DESC
+                                                 ) T1
+                                            WHERE ROWNUM = 1)
+                     )
+GROUP BY T1.ITEM_ID
+ORDER BY 2 DESC;
+
+
+-----------7번 문제 ---------------------------------------------------
+ITEM 테이블에 신규 데이터를 입력하는 구문의 첫번째 데이터인 코드값 ()에 들어갈 쿼리를 완성하여 입력하시오.
+ITEM 코드 값을 조회해서 생성하시오
+EX) SELECT ITEM_ID FROM ITEM 로 조회되는 값의 수에 +1 즉 총자리수는 6자리임 문자1 + 숫자5 현재 M00011 있으니 M00012 이 입력되어야함.
+
+INSERT INTO ITEM VALUES ((),'SOUP','스프','FOOD',7000);
+---------------------------------------------------------------------
+
+INSERT INTO ITEM VALUES ( (SELECT LPAD(NVL(MAX(TO_NUMBER(REPLACE(ITEM_ID,'M',''))),0) + 1 , 5 , 'M0000')
+                           FROM ITEM)
+                           ,'SOUP'
+                           ,'스프'
+                           ,'FOOD'
+                           ,7000  
+                         );
+
+
+
+SELECT LPAD(NVL(MAX(TO_NUMBER(REPLACE(ITEM_ID,'M',''))),0) + 1 , 5 , 'M0000')
+FROM ITEM ;
+
+-----------8번 문제 ---------------------------------------------------
+-- 7번 문제 스프 -> 수프로
+        7000 -> 7500 으로 수정하시오
+---------------------------------------------------------------------
+UPDATE ITEM
+SET PRODUCT_DESC = '수프'
+,   PRICE = 7500
+WHERE ITEM_ID = 'M0011';
+COMMIT;
+-----------9번 문제 ---------------------------------------------------
+ 전체 상품의 총 판매량과 총 매출액, 전용 상품의 판매량과 매출액을 출력하시오
+ reservation, order_info 테이블을 활용하여
+ 온라인 전용상품의 총매출을 구하시오
+ ---------------------------------------------------------------------
+
+
+SELECT SUM(B.quantity) 총판매량,
+       SUM(B.sales) 총매출,
+       SUM(DECODE(B.item_id,'M0001',B.quantity,0)) 전용상품판매량,
+       SUM(DECODE(B.item_id,'M0001',B.sales,0)) 전용상품매출
+FROM reservation A, order_info B
+WHERE A.reserv_no = B.reserv_no(+)
+AND A.CANCEL = 'N';
+
+
+
+-----------10번 문제 ---------------------------------------------------
+매출월별 총매출, 전용상품이외의 매출, 전용상품 매출, 전용상품판매율, 총예약건, 예약완료건, 예약취소건, 예약취소율을 출력하시오
+ ---------------------------------------------------------------------
+
+SELECT T1.매출월
+    ,  T1.총매출
+    ,  T1.전용상품외매출
+    ,  T1.전용상품매출
+    ,  T1.전용상품판매율
+    ,  T2.총예약건
+    ,  T2.예약완료건
+    ,  T2.예약취소건
+    ,  T2.예약취소율
+FROM   (
+        SELECT  SUBSTR(A.reserv_date,1,6) 매출월
+              , SUM(B.sales) 총매출
+              , SUM(B.sales)- SUM(DECODE(B.item_id,'M0001',B.sales,0)) 전용상품외매출
+              , SUM(DECODE(B.item_id,'M0001',B.sales,0)) 전용상품매출
+              , ROUND(SUM(DECODE(B.item_id,'M0001',B.sales,0))/SUM(B.sales)*100,1)||'%' 전용상품판매율
+        FROM reservation A, order_info B
+        WHERE A.reserv_no = B.reserv_no
+        GROUP BY SUBSTR(A.reserv_date,1,6)
+        ORDER BY SUBSTR(A.reserv_date,1,6)
+        )T1
+      , (
+	SELECT SUBSTR(A.reserv_date,1,6) 매출월
+	      , COUNT(DISTINCT A.reserv_no) 총예약건
+	      , SUM(DECODE(A.cancel,'N',1,0)) 예약완료건
+	      , SUM(DECODE(A.cancel,'Y',1,0)) 예약취소건
+	      , ROUND(SUM(DECODE(A.cancel,'Y',1,0))/COUNT(A.reserv_no)*100,1)||'%' 예약취소율
+	FROM reservation A
+	GROUP BY SUBSTR(A.reserv_date,1,6)
+	ORDER BY SUBSTR(A.reserv_date,1,6)
+	) T2
+
+WHERE T1.매출월 = T2.매출월;
+-------------------------------------------------------------------------------
+--
+select (select department_name -- 데이터는 무조건 한 건만
+        from departments
+        where department_id = a.department_id)
+        , a.department_id
+        , a.job_id
+        ,(select job_title from jobs where job_id = a.job_id) as job_nm
+from employees a ;
+
+```
+### 4. ANSI 조인  
+- 기존 문법과 ANSI조인의 차이점은 조인 조건이 WHERE절이 아닌 FROM절에 들어간다는 점이다.
+#### (1) ANSI 동등조인
+```sql
+-------------------------------------------------------------------------------
+-- 일반 동등조인 : where 절에 조인 조건이 들어감
+select a.employee_id
+     , b.department_name
+from employees a
+    ,departments b
+where a.department_id = b.department_id ;
+
+--ANSI INNER JOIN : FROM 절에 조인 조건이 들어감
+select a.employee_id
+     , b.department_name
+from employees a
+inner join departments b
+on(a.department_id = b.department_id ) ;
+------------------------------------------------------------------------------
+--컬럼이 동일할 때 as 말고 USING을 써도 됨
+SELECT a.employee_id
+     , department_id
+     , b.department_name
+FROM employees a
+INNER JOIN departments b
+USING(department_id) ;
+
+--다중 조인 INNER JOIN 구문 추가로 작성
+select a.employee_id
+     , b.department_name
+from employees a
+INNER JOIN departments b
+on(a.department_id = b.department_id)
+INNER JOIN jobs c
+on(a.job_id = c.job_id) ;
+```
+#### (2) ANSI 아우터조인
+```sql
+-------------------------------------------------------------------------------
+-- 2. 아우터조인
+select *
+from 학생
+    , 수강내역
+where 학생.학번 = 수강내역.학번(+) ;
+-- ANSI 아우터 조인(LEFT, RIGHT)
+select *
+from 학생
+LEFT OUTER JOIN 수강내역
+ON(학생.학번 = 수강내역.학번);
+
+select *
+from 학생
+RIGHT OUTER JOIN 수강내역
+ON(학생.학번 = 수강내역.학번);
+-------------------------------------------------------------------------------
+
+select *
+from addr a
+    ,hobby b
+    where a.code(+) = b.code ;
+```
+#### (3) ANSI FULL OUTER JOIN 
+```sql
+-------------------------------------------------------------------------------  
+--FULL OUTER JOIN
+--where a.code(+) = b.code(+) ; <-- 와 같은 의미
+--ANSI FULL OUTER JOIN 양쪽 테이블에 널이 있어도 포함시키고자 할 때
+--FULL OUTER JOIN은 ANSI 문법만 가능
+select *
+from addr a
+FULL OUTER JOIN hobby b
+ON(a.code = b.code); --where a.code(+) = b.code(+) ; <-- 와 같은 의미
+-------------------------------------------------------------------------------    
+/*
+오늘의 문제
+ANSI와 일반 구문 둘다 작성해보세요
+월별 온라인 전용 상품 매출액을 일요일부터 월요일까지 구분해 출력하시오
+날짜, 상품명, 일요일,월요일, 화요일 수요일, 목요일, 금요일, 토요일의
+매출을 구하시오
+*/
+
+select TO_CHAR(TO_DATE(RESERVATION.RESERV_DATE, 'YYYY-MM-DD'), 'YYYYMM') AS 날짜
+     , ITEM.PRODUCT_NAME
+     , SUM(DECODE(TO_CHAR(TO_DATE(RESERVATION.RESERV_DATE), 'D'), 1, ORDER_INFO.SALES, 0)) AS 일요일
+     , SUM(DECODE(TO_CHAR(TO_DATE(RESERVATION.RESERV_DATE), 'D'), 2, ORDER_INFO.SALES, 0)) AS 월요일
+     , SUM(DECODE(TO_CHAR(TO_DATE(RESERVATION.RESERV_DATE), 'D'), 3, ORDER_INFO.SALES, 0)) AS 화요일
+     , SUM(DECODE(TO_CHAR(TO_DATE(RESERVATION.RESERV_DATE), 'D'), 4, ORDER_INFO.SALES, 0)) AS 수요일
+     , SUM(DECODE(TO_CHAR(TO_DATE(RESERVATION.RESERV_DATE), 'D'), 5, ORDER_INFO.SALES, 0)) AS 목요일
+     , SUM(DECODE(TO_CHAR(TO_DATE(RESERVATION.RESERV_DATE), 'D'), 6, ORDER_INFO.SALES, 0)) AS 금요일
+     , SUM(DECODE(TO_CHAR(TO_DATE(RESERVATION.RESERV_DATE), 'D'), 7, ORDER_INFO.SALES, 0)) AS 토요일
+FROM RESERVATION
+    ,ITEM
+    ,ORDER_INFO
+WHERE ORDER_INFO.RESERV_NO = RESERVATION.RESERV_NO
+AND ORDER_INFO.ITEM_ID = 'M0001'
+AND ITEM.ITEM_ID = 'M0001'
+GROUP BY TO_CHAR(TO_DATE(RESERVATION.RESERV_DATE, 'YYYY-MM-DD'), 'YYYYMM')
+        ,ITEM.PRODUCT_NAME
+ORDER BY 1 ASC;
+
+
+
+-------------------------------------------------------------------------------    
+--ANSI로 바꾼 것
+select TO_CHAR(TO_DATE(r.RESERV_DATE, 'YYYY-MM-DD'), 'YYYYMM') AS 날짜
+     , i.PRODUCT_NAME
+     , SUM(DECODE(TO_CHAR(TO_DATE(r.RESERV_DATE), 'D'), 1, o.SALES, 0)) AS 일요일
+     , SUM(DECODE(TO_CHAR(TO_DATE(r.RESERV_DATE), 'D'), 2, o.SALES, 0)) AS 월요일
+     , SUM(DECODE(TO_CHAR(TO_DATE(r.RESERV_DATE), 'D'), 3, o.SALES, 0)) AS 화요일
+     , SUM(DECODE(TO_CHAR(TO_DATE(r.RESERV_DATE), 'D'), 4, o.SALES, 0)) AS 수요일
+     , SUM(DECODE(TO_CHAR(TO_DATE(r.RESERV_DATE), 'D'), 5, o.SALES, 0)) AS 목요일
+     , SUM(DECODE(TO_CHAR(TO_DATE(r.RESERV_DATE), 'D'), 6, o.SALES, 0)) AS 금요일
+     , SUM(DECODE(TO_CHAR(TO_DATE(r.RESERV_DATE), 'D'), 7, o.SALES, 0)) AS 토요일
+FROM RESERVATION r
+INNER JOIN ORDER_INFO o
+ON (o.RESERV_NO = r.RESERV_NO)
+INNER JOIN ITEM i
+ON (o.ITEM_ID = i.ITEM_ID)
+WHERE o.ITEM_ID = 'M0001'
+GROUP BY TO_CHAR(TO_DATE(r.RESERV_DATE, 'YYYY-MM-DD'), 'YYYYMM')
+        ,i.PRODUCT_NAME
+ORDER BY 1 ASC;
+-------------------------------------------------------------------------------    
+
+    
+    
