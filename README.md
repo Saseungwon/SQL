@@ -6,7 +6,7 @@
 
 - 데이터베이스 객체란?
 
-1. 테이블
+#### (1) 테이블
 
 - 제약조건 : 컬럼에 대한 속성 형태로 정의하지만 엄연히 오라클 데이터베이스 객체 중 하나이며 데이터 무결성을 보장하기 위한 용도로 사용된다.
 - NOT NULL(NN) : 열은 null값을 포함할 수 없습니다.
@@ -16,7 +16,7 @@
 - CHECK(CK) : 참이어야 하는 조건을 지정함(대부분 업무 규칙을 설정)
 
 
-2. 테이블 Table.제약조건
+#### (2) 테이블 Table.제약조건
 - NULL : 값이 없음을 의미함, 별도로 지정하지 않으면 해당 컬럼은 NULL을 허용한다, NULL을 허용하지 않으려면 NOT NULL 구문을 명시해야 한다.
 - NOT NULL : NOT NULL 제약조건을 명시하면 해당 컬럼에는 반드시 데이터를 입력해야 한다.
 
@@ -186,6 +186,200 @@ DESC ex2_10; -- 확인
 -- 컬럼 삭제
 ALTER TABLE ex2_10 DROP COLUMN;
 ```
+
+### 2. 뷰  View
+#### (1) 단순 뷰
+- 하나의 테이블로 생성
+- 그룹 함수의 사용이 불가능
+- distinct(중복 방지)사용이 불가능
+- insert/update/delete 등 사용가능
+
+####(2)  복합 뷰
+- 여러 개의 테이블로 생성
+- 그룹함수의 사용이 가능
+- distinct(중복 방지)사용이 불가능
+- insert/update/delete 등 사용가능
+```sql
+--------------------------------------------------------------------
+grant create view to java ;
+
+--위의 쿼리를 자주 사용한다면, 사용할 때마다 SQL 문을
+--매번 작성해야 하는 불편함이 있다.
+--이때 뷰를 생성해서 참조하면 편리함
+
+CREATE OR REPLACE VIEW emp_dept_v1 as
+select a.employee_id, a.emp_name, a.department_id,
+       b.department_name
+from employees a,
+     departments b
+where a.department_id = b.department_id;
+
+select *
+from emp_dept_v1 ;
+
+--------------------------------------------------------------------
+-- study 계정에서도 emp_dept_v1 테이블 볼 수 있는 권한주는 것
+grant select on emp_dept_v1 to study ;
+commit;
+-- java 계정에 있는 emp_dept_v1 뷰 조회
+select *
+from java.emp_dept_v1 ;
+--------------------------------------------------------------------
+-- 뷰 삭제
+--------------------------------------------------------------------
+drop view emp_dept_v1 ;
+```
+### 3. 인덱스 Index
+
+- 테이블에 있는 데이터를 빨리 찾기 위한 용도의 데이터 베이스 객체
+- 데이터가 많지 않을 때는 비효율적
+- 1개 이상의 컬럼으로 인덱스를 만들 수 있음
+- 인덱스 자체에 키와 매핑 주소 값을 별도로 저장한다,
+- 따라서 테이블 입력, 삭제, 수정할 때 인덱스에 저장된 정보도 수정된다.
+```sql
+--------------------------------------------------------------------
+-- ### ALL_TAB_COLUMNS : 테이블 별 컬럼정보 조회
+SELECT  *
+FROM ALL_TAB_COLUMNS
+WHERE OWNER = 'JAVA'
+AND TABLE_NAME = 'INFO';
+
+SELECT *
+FROM USER_TAB_COMMENTS
+WHERE TABLE_NAME = 'INFO' ;  
+--------------------------------------------------------------------
+
+SELECT *
+FROM ALL_IND_COLUMNS
+WHERE index_owner = 'java';
+
+--------------------------------------------------------------------
+-- ### 시노님 synonym (동의어)
+-- 개발의 용이함. 보안의 목적으로 시노님을 준다.
+-- public : 모든 사용자 접근
+-- private 특정 사용자만
+-- public 시노님은 DBA 권한이 있는 사용자만 생성, 삭제가 가능하다.
+
+--------------------------------------------------------------------
+
+drop public synonym emss;
+
+select *
+from java.syn_channel ;
+
+select *
+from syn_channel ;
+
+select *
+from emss ;
+
+--------------------------------------------------------------------
+
+-- public synonym 생성 삭제는 DBA 권한만 가능
+
+grant select on syn_channel to study;
+
+grant select on emss to study ;
+
+grant create synonym to java ;
+
+grant create public synonym to java ;
+
+create public synonym emss
+for employees ;
+
+--------------------------------------------------------------------
+
+CREATE OR REPLACE SYNONYM syn_channel
+FOR channels ;
+
+create public synonym emss
+for employees ;
+
+--------------------------------------------------------------------
+### 시퀀스 Sequence
+-- - 자동 순번을 반환하는 데이터베이스 객체
+CREATE SEQUENCE my_seq1
+INCREMENT BY 1  --증강숫자
+START WITH  1    --시작숫자
+MINVALUE  1    --최소값(시작숫자와 같아야함)
+MAXVALUE   1000   --최대값(시작숫자 보다 커야함)
+NOCYCLE         --디폴트 값으로 최대나 최소값에 도달하면 생성 중지
+NOCACHE   ;      --디폴트로 메모리에 시퀀스 값을 미리 할당해 놓지 않으며 디폴트 값은 20
+--------------------------------------------------------------------
+SELECT my_seq1.CURRVAL  --현재 시퀀스 값
+FROM DUAL;
+SELECT my_seq1.NEXTVAL  --증감
+FROM DUAL ;
+
+CREATE TABLE EX11_1 (
+    COL1 NUMBER
+    );
+
+CREATE SEQUENCE EX11_1
+INCREMENT BY    1
+START WITH      1
+MINVALUE        1
+MAXVALUE        1000   
+NOCYCLE         
+NOCACHE   ;      
+
+
+INSERT INTO EX11_1 (col1) VALUES (my_seq1.NEXTVAL);
+
+SELECT *
+FROM EX11_1 ;
+
+SELECT NVL(MAX(COL1),0) + 1
+FROM EX11_1;
+    
+delete EX11_1;   
+
+INSERT INTO EX11_1(col1)
+VALUES ((SELECT NVL(MAX(COL1),0) + 1
+        FROM EX11_1)
+        );
+
+
+SELECT my_seq1.CURRVAL  --합
+FROM DUAL;
+
+--------------------------------------------------------------------
+
+
+ALTER SEQUENCE my_seq1 INCREMENT BY -8; -- 현재 시퀀스 값 -를 하고
+SELECT my_seq1.NEXTVAL                  -- 시퀀스 실행
+FROM DUAL ;
+ALTER SEQUENCE my_seq1 INCREMENT BY 1;  --다시 증가값 수정
+
+--------------------------------------------------------------------
+-- 최소값 1 , 최대값99999999, 1000부터 시작해서 2씩 증가하는
+-- ORDERS_SEQ 라는 시퀀스를 만들어보자
+
+CREATE TABLE ORDERS_SEQ4 (
+    COL1 NUMBER ) ;
+
+CREATE SEQUENCE ORDERS_SEQ4
+INCREMENT BY    2
+START WITH      1000
+MINVALUE        1
+MAXVALUE        99999999   
+NOCYCLE         
+NOCACHE   ;    
+
+SELECT ORDERS_SEQ4.NEXTVAL   -- 시퀀스 실행
+FROM DUAL ;
+
+
+SELECT ORDERS_SEQ4.CURRVAL  --현재 시퀀스 값
+FROM DUAL;
+-- 테이블이 아니라 시퀀스에 데이터가 생성됨
+--------------------------------------------------------------------
+
+```
+
+
+
 
 
 ## 📚 2. SQL 기본
