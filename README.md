@@ -1,6 +1,6 @@
 # 🏄‍♂️SQL(Next IT)
 
-## 📚1. 데이터베이스를 구성하는 객체 이해
+## 📚1장. 데이터베이스를 구성하는 객체 이해
 
 ### 1. 데이터베이스 객체
 
@@ -382,7 +382,7 @@ FROM DUAL;
 
 
 
-## 📚 2. SQL 기본
+## 📚 2장. SQL 기본
 
 ### 1. **SELECT문**
 - 가장 기본적인 SQL문으로 테이블이나 뷰에 있는 데이터를 조회할 때 사용
@@ -728,7 +728,7 @@ ORDER BY CUST_YEAR_OF_BIRTH DESC;  --asc / desc 구분
 - LIKE 조건식 : 문자열의 패턴을 검색할 때 사용하는 조건식.
 
 
-## 📚 3. SQL 함수
+## 📚 3장. SQL 함수
 
 ### 1. 숫자함수
 - https://docs.oracle.com/cd/B19306_01/server.102/b14200/functions001.htm#i88893
@@ -999,7 +999,7 @@ ORDER BY HIRE_DATE ASC ;
 >from -> where -> group by -> having -> select절 -> order by
 >--------------------------------------------------------------
 
-### 4. NULL 관련 함수
+### 5. NULL 관련 함수
 ```sql
 --NVL(n1, n2)   n1이 null 일 경우 n2로 변환
 
@@ -1069,7 +1069,7 @@ FROM CUSTOMERS;
 <<<<<<< HEAD
 ```
 
-## 📚 4. 그룹쿼리와 집합 연산자 
+## 📚 4장. 그룹쿼리와 집합 연산자 
 
 ### 1. 기본 집계함수
 
@@ -1309,7 +1309,7 @@ SELECT '총합'
 FROM employees;
 ```
 
-## 📚 5. 조인과 서브쿼리
+## 📚 5장. 조인과 서브쿼리
 
 ### 1. 조인
 - 관계형 데이터베이스에서 SQL을 이용해 관계를 맺는 방법이 조인이다.
@@ -2292,6 +2292,379 @@ GROUP BY TO_CHAR(TO_DATE(r.RESERV_DATE, 'YYYY-MM-DD'), 'YYYYMM')
         ,i.PRODUCT_NAME
 ORDER BY 1 ASC;
 -------------------------------------------------------------------------------    
+```
+    
+    
+## 📚 6장. SQL 함수
 
+### 1. PL/SQL
+- PL/SQL 의 기본 구조
+- 일반 프로그래밍 언어와 다른 점은 모든 코드가 DB 내부에 만들어지며 처리됨으로써 수행 속도와 성능 측면에서 큰 장점이 있다.
+
+- 블록(pl/sql 소스프로그램의 기본 단위)
+  1. 이름부 : 블록의 명칭이 옴. 생략하면 익명 블록이 됨
+  2. 선언부 : DECLARE로 시작됨. 문장의 마지막은 세미콜론을 넣어야 하며 사용할변수나 상수가없다면 생략 가능
+  3. 실행부 : 실제로 로직을 처리하는 부분
+
+- := 오른쪽 값을 왼쪽에 할등한다.
+- dbms_output.put_line는 매개변수 값을 출력한다.
+- SET SERVEROUTPUT ON : OUTPUT 패키지를 사용해 값을 보려면
+- SET TIMING ON       : 블록의 소요시간을 보려면
+```sql
+SET SERVEROUTPUT ON
+SET TIMING ON
+
+DECLARE -- 익명블록(이름이 없는 PL/SQL)
+    vi_num NUMBER ;
+BEGIN
+    vi_num := 100;
+    DBMS_OUTPUT.PUT_LINE('출력 :' ||vi_num);
+END ;
     
+
+DECLARE
+    vi_num CONSTANT NUMBER := 100 ;  --상수
+BEGIN
+    vi_num := 101;    --오류
+    DBMS_OUTPUT.PUT_LINE('출력 :' ||vi_num);
+END ;
+
+
+DECLARE
+VI_NUM NUMBER := 2*2;
+BEGIN
+    VI_NUM := VI_NUM **10; ---연산 가능
+    DBMS_OUTPUT.PUT_LINE('출력 :' ||vi_num);
+END ;
+
+
+------------------------------------------------------------------
+DECLARE
+    VS_EMP_NAME    VARCHAR(80) ; --사원명 변수
+    VS_DEP_NAME    VARCHAR(80) ; --부서명 변수
+BEGIN
+    SELECT A.EMP_NAME, B.DEPARTMENT_NAME
+    INTO VS_EMP_NAME, VS_DEP_NAME
+    FROM EMPLOYEES A,
+        DEPARTMENTS B
+    WHERE A.DEPARTMENT_ID = B.DEPARTMENT_ID
+    AND A.EMPLOYEE_ID = 100;
+        DBMS_OUTPUT.PUT_LINE(VS_EMP_NAME || ' - ' || VS_DEP_NAME);
+END ;
+
+
+/*
+상수로 '최숙경' 선언하고 학생 테이블에서 이름을 조회하여 학번을 변수에 담는
+DML 문을 작성하고 아래와 같이 출력하시오
+최숙경 : 1997131542
+*/
+DECLARE
+    VS_EMP_NAME CONSTANT VARCHAR2(80) := :A; --바인딩(값을 받아서 출력)
+    VS_HAK_NUM NUMBER;
+BEGIN
+    SELECT 학번
+    INTO VS_HAK_NUM
+    FROM 학생
+    WHERE 이름 = VS_EMP_NAME ;
+    DBMS_OUTPUT.PUT_LINE(VS_EMP_NAME || ':' || VS_HAK_NUM) ;
+END ;
+
+------------------------------------------------------------------
+
+DECLARE
+    VS_EMP_NAME CONSTANT 학생.이름%TYPE := :A; --바인딩(값을 받아서 출력)
+    VS_HAK_NUM           학생.학번%TYPE ;      --특정 테이블의 변수의 타입
+BEGIN
+    SELECT 학번
+    INTO VS_HAK_NUM
+    FROM 학생
+    WHERE 이름 = VS_EMP_NAME ;
+    DBMS_OUTPUT.PUT_LINE(VS_EMP_NAME || ':' || VS_HAK_NUM) ;
+END ;
+
+------------------------------------------------------------------
+--변수 선언이 필요 없을 경우 DECLARE 표시 안 해도 됨  
+
+BEGIN
+    DBMS_OUTPUT.PUT_LINE(1 * 3); --3
+    DBMS_OUTPUT.PUT_LINE(2 * 3); --6
+    DBMS_OUTPUT.PUT_LINE(3 * 3); --9
+    DBMS_OUTPUT.PUT_LINE(4 * 3); --12
+END ;
+
+------------------------------------------------------------------
+--변수 선언시 타입은 테이블명.컬럼명%TYPE ;
+--사원(employees) 테이블에서 201번 사원의 '이름'과
+--'이메일주소'를 출력하는 익명 블록을 만들어 보자
+--아래처럼
+--Michael Hartstein사원의 E-MAIL : MHARTSTE
+DECLARE
+    VS_EMP_NAME employees.emp_name%TYPE ;
+    VS_EMAIL employees.email%TYPE ;
+BEGIN
+SELECT EMP_NAME , EMAIL
+INTO VS_EMP_NAME, VS_EMAIL --변수
+FROM EMPLOYEES
+WHERE EMPLOYEE_ID = : a ;
+    DBMS_OUTPUT.PUT_LINE(VS_EMP_NAME || ':' || VS_EMAIL) ;
+END;
+
+------------------------------------------------------------------
+
+/*
+(1) 사원 테이블에서 사원번호가 제일 큰 사원을 찾아낸 뒤,
+vn_max_empno 변수를 담고
+(2) vn_max_empno + 1 하여 사원 번호를 입력하는
+insert구문으로 사원테이블에 신규 입력하는 익명 블록을 만들어보자.
+<사원명> :
+<이메일> : HARRIS
+<입사일자> : 현재일자
+<부서번호> : 50
+*/
+
+DECLARE
+    VN_MAX_EMPNO EMPLOYEES.EMPLOYEE_ID%TYPE;
+BEGIN
+    SELECT MAX(EMPLOYEE_ID)
+    INTO VN_MAX_EMPNO
+    FROM EMPLOYEES ;
     
+    INSERT INTO EMPLOYEES (EMPLOYEE_ID, EMP_NAME, EMAIL, HIRE_DATE, DEPARTMENT_ID)
+    VALUES(VN_MAX_EMPNO+1, 'Harrion Ford', 'HARRIS', sysdate, 50);
+    commit;
+END ;
+
+SELECT *
+FROM EMPLOYEES
+ORDER BY
+------------------------------------------------------------------
+```
+- IF문
+```SQL
+-- IF문
+DECLARE
+ VN_NUM1 NUMBER :=1;
+ VN_NUM2 NUMBER :=2;
+BEGIN
+ IF VN_NUM1  > VN_NUM2 THEN
+    DBMS_OUTPUT.PUT_LINE(VN_NUM1 || '이 큰수 ');
+ELSE
+    DBMS_OUTPUT.PUT_LINE(VN_NUM2 || '이 큰수 ');
+ END IF ;
+END;
+
+------------------------------------------------------------------
+--학점이 3이상 A출력
+--학점이 3미만 B출력
+--이름 : 바인딩
+
+DECLARE
+ VN_HAK_NUM 학생.평점%TYPE ;
+ VN_NAME 학생.이름%TYPE := :이름;
+BEGIN
+    SELECT 평점
+    INTO   VN_HAK_NUM
+    FROM   학생
+    WHERE  이름 = VN_NAME ;
+    
+IF VN_HAK_NUM >= 3 THEN
+     DBMS_OUTPUT.PUT_LINE(VN_NAME || '의 평점 A');
+ELSE
+     DBMS_OUTPUT.PUT_LINE(VN_NAME || '의 평점 B');
+END IF ;
+END ;
+------------------------------------------------------------------
+```
+- LOOP문
+```SQL
+--LOOP문
+
+DECLARE
+  VN_BASE NUMBER :=3;
+  VN_CNT  NUMBER :=1;
+BEGIN
+LOOP
+    DBMS_OUTPUT.PUT_LINE(VN_BASE || '*' || VN_CNT || '=' || VN_BASE*VN_CNT);
+    VN_CNT := VN_CNT + 1; --VN_CNT 값을 1씩 증가
+    EXIT WHEN VN_CNT > 9; --VN_CNT가 9보다 크면 루프 종료
+      END LOOP;
+END;
+------------------------------------------------------------------
+```
+- WHILE문
+```SQL
+--WHILE문
+DECLARE
+  VN_BASE NUMBER :=3;
+  VN_CNT  NUMBER :=1;
+BEGIN
+WHILE VN_CNT <= 9  --VN_CNT가 9보다 작거나 같을 경우에만 반복
+LOOP
+    DBMS_OUTPUT.PUT_LINE(VN_BASE || '*' || VN_CNT || '=' || VN_BASE*VN_CNT);
+    VN_CNT := VN_CNT + 1; --VN_CNT 값을 1씩 증가
+END LOOP;
+END;
+------------------------------------------------------------------
+```
+- FOR문
+```SQL
+--FOR문
+
+DECLARE
+ VN_BASE NUMBER :=3;
+BEGIN
+ FOR i IN 1..9 --i 참조는 가능하나 변경은 불가능(..은 규칙)
+ LOOP
+     DBMS_OUTPUT.PUT_LINE(VN_BASE || '*' || i || '=' || VN_BASE*i);
+ END LOOP;
+END ;
+
+--FOR REVERSE
+
+DECLARE
+ VN_BASE NUMBER :=3;
+BEGIN
+ FOR i IN REVERSE 1..9 --REVERSE 반대로
+ LOOP
+     DBMS_OUTPUT.PUT_LINE(VN_BASE || '*' || i || '=' || VN_BASE*i);
+ END LOOP;
+END ;
+------------------------------------------------------------------
+```
+- 구구단
+```SQL
+--구구단 (for - loop - end loop)
+BEGIN
+
+ FOR i IN 2..9 --i 참조는 가능하나 변경은 불가능(..은 규칙)
+ LOOP
+     FOR k IN 1..9
+     LOOP
+     DBMS_OUTPUT.PUT_LINE(i || '*' || k || '=' || i*k);
+     END LOOP;
+ DBMS_OUTPUT.PUT_LINE('=============');
+ END LOOP;
+END ;
+-- 건너뛸때 (Continue)
+BEGIN
+
+ FOR i IN 2..9 --i 참조는 가능하나 변경은 불가능(..은 규칙)
+ LOOP
+     CONTINUE WHEN i = 5 ; --해당 조건일 때 건너뜀
+     CONTINUE WHEN i = 7 ; --해당 조건일 때 건너뜀
+
+     FOR k IN 1..9
+     LOOP
+     DBMS_OUTPUT.PUT_LINE(i || '*' || k || '=' || i*k);
+     END LOOP;
+ DBMS_OUTPUT.PUT_LINE('=============');
+ END LOOP;
+END ;
+```
+```SQL
+/*
+신입생에게 기존학번의 가장 높은 번호를 찾아
+높은 번호의 앞자리 4자리(올해년도)와 같다면 max학번에 +1을
+다른 년도라면 해당 년도에 학번 자리수 반큼 자릿수를 맞추고 +1을 해주어
+학번을 생성하고
+학생 테이블에 INSERT 햬주는 익명블록을 만드시오
+                    :이름, : 나이는 입력받으시오
+insert 데이터 학번, 이름, 나이
+*/
+------------------------------------------------------------------
+
+BEGIN
+     DBMS_OUTPUT.PUT_LINE(TO_CHAR(SYSDATE, 'YYYY'));
+     IF TO_CHAR(SYSDATE, 'YYYY') = '2021' THEN
+             DBMS_OUTPUT.PUT_LINE('올햬');
+     END IF ;
+END ;
+------------------------------------------------------------------
+
+SELECT
+IF
+(2021000001) 학번을 생성하여 변수에 할당
+INSERT
+
+
+DECLARE
+ 학생학번 학생.학번%TYPE ;
+ 학생이름 학생.이름%TYPE := :이름;
+ 학생생년월일 학생.생년월일%TYPE := :생년월일;
+BEGIN
+    SELECT 학번
+    INTO   학생학번
+    FROM 학생
+    WHERE 학생생년월일 = 생년월일
+     IF SUBSTR(학번, 1, 4)  = '2021' THEN
+             DBMS_OUTPUT.PUT_LINE('올해');
+     END IF ;
+END ;
+
+
+DECLARE
+DBMS_OUTPUT.PUT_LINE(SUBSTR(학번, 1, 4));
+BEGIN
+    SELECT 학번
+    INTO 학생학번
+END ;
+
+IF(SELECT SUBSTR(MAX(학번), 1, 4)) < '학번'
+    DBMS_OUTPUT.PUT_LINE(학번);
+from 학생 ;
+
+
+DECLARE
+ 학생학번 학생.학번%TYPE ;
+ 학생이름 학생.이름%TYPE := :이름;
+ 학생생년월일 학생.생년월일%TYPE := :생년월일;
+BEGIN
+    SELECT 학번
+    INTO   학생학번
+    FROM   학생
+    WHERE 학생생년월일 = 생년월일
+IF 학생학번  > SUBSTR(MAX(학번), 1, 4) THEN
+    DBMS_OUTPUT.PUT_LINE(학생학번);
+ELSE
+    DBMS_OUTPUT.PUT_LINE(학생학번 + 1);
+END IF ;
+END;
+
+
+select * from 학생;
+
+select substr(학번,1,4) from 학생;
+select rpad(학번,10,0) from 학생;
+------------------------------------------------------------------
+
+/*
+기존의 학번과 현재 시스템 년도의 년도가 같다면 기존학번에 +1 을 해준다음 학번 이름 생년월일을 입력해주고
+년도가 다르다면 생년월일의 년도와 기존학번의 자리수를 맞춰준다음 빈공간은 0으로 채워 주어라! +1해주어라!
+INSERT INTO 테이블명(컬럼명)values(값);
+
+*/
+
+DECLARE
+ nums 학생.학번%TYPE;
+ names 학생.이름%TYPE:= :이름;
+ births 학생.생년월일%TYPE:= :생년월일;
+ 
+BEGIN
+    SELECT max(학번)
+    INTO   nums
+    FROM   학생 ;
+
+    IF substr(to_char(nums),1,4)  = to_char(sysdate,'YYYY') then
+        INSERT INTO 학생(학번,이름,생년월일) values (nums+1,names,births);
+    else
+        INSERT INTO 학생(학번,이름,생년월일)values(rpad(to_char(sysdate,'YYYY'),10,0)+1,names,births);
+        
+        
+    END IF ;
+END;
+
+select * from 학생;
+
+------------------------------------------------------------------
+```
+
