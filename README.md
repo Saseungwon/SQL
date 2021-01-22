@@ -2295,9 +2295,9 @@ ORDER BY 1 ASC;
 ```
     
     
-## 📚 6장. SQL 함수
+## 📚 6장. PL/SQL
 
-### 1. PL/SQL
+### 1. PL/SQL  기본구조 
 - PL/SQL 의 기본 구조
 - 일반 프로그래밍 언어와 다른 점은 모든 코드가 DB 내부에 만들어지며 처리됨으로써 수행 속도와 성능 측면에서 큰 장점이 있다.
 
@@ -2439,7 +2439,7 @@ FROM EMPLOYEES
 ORDER BY
 ------------------------------------------------------------------
 ```
-- IF문
+### 2. IF문
 ```SQL
 -- IF문
 DECLARE
@@ -2475,7 +2475,7 @@ END IF ;
 END ;
 ------------------------------------------------------------------
 ```
-- LOOP문
+### 3. LOOP문
 ```SQL
 --LOOP문
 
@@ -2491,7 +2491,7 @@ LOOP
 END;
 ------------------------------------------------------------------
 ```
-- WHILE문
+### 4. WHILE문
 ```SQL
 --WHILE문
 DECLARE
@@ -2506,7 +2506,7 @@ END LOOP;
 END;
 ------------------------------------------------------------------
 ```
-- FOR문
+### 5. FOR문
 ```SQL
 --FOR문
 
@@ -2561,6 +2561,7 @@ BEGIN
  END LOOP;
 END ;
 ```
+- 문제
 ```SQL
 /*
 신입생에게 기존학번의 가장 높은 번호를 찾아
@@ -2667,4 +2668,340 @@ select * from 학생;
 
 ------------------------------------------------------------------
 ```
+
+
+### 6. CASE문
+```sql
+------------------------------------------------------------------
+--CASE
+
+DECLARE
+    VN_SALARY NUMBER := 0 ;
+    VN_DEPARTMENT_ID NUMBER := 0 ;
+BEGIN
+    VN_DEPARTMENT_ID := ROUND(DBMS_RANDOM.VALUE(10, 120), -1); --랜덤함수 10 ~ 120
+    e
+SELECT SALARY
+INTO VN_SALARY
+FROM EMPLOYEES
+WHERE DEPARTMENT_ID = VN_DEPARTMENT_ID
+AND ROWNUM = 1;
+
+CASE WHEN VN_SALARY BETWEEN 1 AND 3000 THEN
+        DBMS_OUTPUT.PUT_LINE('낮음');
+     WHEN VN_SALARY BETWEEN 3001 AND 6000 THEN
+        DBMS_OUTPUT.PUT_LINE('중간');
+     WHEN VN_SALARY BETWEEN 6001 AND 10000 THEN
+        DBMS_OUTPUT.PUT_LINE('높음');
+     ELSE
+        DBMS_OUTPUT.PUT_LINE('최상위');
+    END CASE ;
+END ;
+------------------------------------------------------------------
+```
+### 7. NULL문
+```sql
+--NULL문
+IF VN_VARIABLE = 'A' THEN
+    NULL;--(처리로직1) 입력할 값이 없으면 그 자리에 null 입력
+ELSE IF VN_VARIABLE = 'B' THEN
+    NULL;--(처리로직2)
+------------------------------------------------------------------
+```
+- 트리출력 
+```sql
+--조건문과 반복문을 활용하여
+--입력 받은 수 +1 층의 트리를 프린트하시오
+
+DECLARE
+ VN_BASE type := (' ');
+BEGIN
+ FOR i IN 1..5
+ LOOP
+     DBMS_OUTPUT.PUT_LINE('*');
+ END LOOP;
+END ;
+
+
+
+DECLARE
+ VN_BASE varchar2(4000) :='*';
+ VN_ESAB varchar2(4000) :=' ';
+BEGIN
+ FOR i IN 1..5
+ LOOP
+   DBMS_OUTPUT.PUT_LINE(VN_BASE);
+    VN_BASE := VN_BASE || '*';
+    FOR j IN 1..5 REVERSE
+    VN_BASE := VN_BASE || '*';
+    
+--     DBMS_OUTPUT.PUT_LINE( (i*'*') || (j*' '));
+--    LOOP
+--    END LOOP ;
+ END LOOP;
+END ;
+
+
+
+
+DECLARE
+ VN_BASE varchar2(4000) :='*';
+ VN_ESAB varchar2(4000) :=' ' ;
+BEGIN
+ FOR i IN 1..5
+ LOOP
+   DBMS_OUTPUT.PUT_LINE(VN_BASE);
+    VN_BASE := VN_BASE || '*';
+    END LOOP ;
+ FOR j IN REVERSE 1..5
+ IF THEN
+ LOOP
+   DBMS_OUTPUT.PUT_LINE(VN_ESAB || VN_BASE);
+    VN_ESAB := VN_ESAB || ' ';
+    END LOOP;
+END ;
+
+
+
+
+DECLARE
+ VN_BASE varchar2(4000) :='*';
+BEGIN
+ FOR i IN 1..5
+ LOOP
+   DBMS_OUTPUT.PUT_LINE(VN_BASE);
+
+    VN_BASE := VN_BASE || '*';
+
+ END LOOP;
+END ;
+
+(추가해야됨)
+```
+### 8. PL/SQL 사용자 정의 함수
+- CREATE OR REPLACE FUNCTION
+```sql
+------------------------------------------------------------------
+--익명 블록은 한 번 사용하고 나오면 없어져 버리는 휘발성 블록이지만
+--함수나 프로시저는 컴파일을 거쳐 데이터베이스 내에 저장되어 재사용이 가능하다.
+
+CREATE OR REPLACE FUNCTION FN_GET_COUNTRY_NAME (P_COUNTRY_ID NUMBER) --타입을 정해줘야됨
+    RETURN VARCHAR2 --국가명을 반환하므로 반환 데이터 타입은 VARCHAR2 날짜면 DATE
+  IS
+    VS_COUNTRY_NAME COUNTRIES.COUNTRY_NAME%TYPE ;
+    VN_COUNT NUMBER := 0;
+  BEGIN
+    SELECT COUNT(*)
+    INTO VN_COUNT
+    FROM COUNTRIES
+    WHERE COUNTRY_ID = P_COUNTRY_ID ;
+  IF VN_COUNT = 0 THEN
+     VS_COUNTRY_NAME := '해당국가 없음';
+  ELSE
+    SELECT COUNTRY_NAME
+    INTO   VS_COUNTRY_NAME
+    FROM    COUNTRIES
+    WHERE  COUNTRY_ID = P_COUNTRY_ID ;
+  END IF ;
+  RETURN VS_COUNTRY_NAME ; -- 국가명 반환
+END ;
+    
+select FN_GET_COUNTRY_NAME(52790)
+from DUAL;
+
+------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION  함수이름(매개변수1 타입, 매개변수2 타입,....n)
+CREATE OR REPLACE FUNCTION  함수이름 <-- 매개변수가 없을때
+------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION  함수이름(매개변수1 타입, 매개변수2 타입,....n)
+RETURN 데이터타입 ; 반환할 데이터의 타입
+
+IS
+    변수, 상수 선언
+BEGIN
+    실행부
+    RETURN 반환값
+    [EXCPEPTION 예외처리부]
+END ;
+------------------------------------------------------------------
+
+--이름을 입력 받아서 학번을 리턴해주는 함수를 작성하시오.
+
+CREATE OR REPLACE FUNCTION FN_GET_HAK_NUM (FS_HAK_NAME VARCHAR2)
+RETURN VARCHAR2  
+
+    IS
+    FN_HAK_NUM VARCHAR2(100);
+    FN_HAK NUMBER := 0;
+
+      BEGIN
+      SELECT COUNT(*)
+      INTO FN_HAK
+      FROM 학생
+      WHERE 이름 = FS_HAK_NAME ;
+      
+  IF FN_HAK = 0 THEN
+     FN_HAK_NUM := '해당학생 없음';
+  ELSE
+    SELECT 이름
+    INTO   FN_HAK_NUM
+    FROM    학생
+    WHERE  이름 = FS_HAK_NAME ;
+  END IF ;
+  RETURN FN_HAK_NUM ;
+END ;
+
+------------------------------------------------------------------
+--DATE 형태의 데이터를 받아서
+--얼마남았나? 얼마나 지났나 리턴해주는 함수를 작성
+
+CREATE OR REPLACE FUNCTION FN_GET_DAY (P_QDATE DATE)
+    RETURN VARCHAR2
+    
+  IS
+  VS_DDDD VARCHAR2(100) ;
+  
+BEGIN
+ IF P_QDATE = SYSDATE THEN
+    VS_DDDD := '오늘입니다' ;
+ ELSIF
+    P_QDATE > SYSDATE THEN
+    VS_DDDD := TRUNC(P_QDATE - SYSDATE)+1 || '남음' ;
+ ELSE
+    VS_DDDD := TRUNC(SYSDATE - P_QDATE) || '지남' ;
+  END IF ;
+  RETURN VS_DDDD ;
+  END;
+  
+SELECT FN_GET_DAY(SYSDATE)
+FROM DUAL ;
+    
+   ```
+### 9. 프로시저
+
+- 함수는 클라이언트에서 실행되며 리턴값이 필수이지만
+- 프로시저는 서버에서 실행되며 리턴값이 없이 또는 여러 개가 가능하다.
+- 주기적으로 실행되는 것을 프로시저로 많이 함
+- CREATE OR REPLACE PROCEDURE 프로시저 이름
+- (매개변수명1 [IN, OUT, INOUT] 데이터 값)
+- IN: 프로시저 내부에서 사용가능
+- OUT : 프로시저 내부에서 사용 불가, 리턴만 받아옴
+- INOUT : 둘다 가능
+```sql
+------------------------------------------------------------------
+
+CREATE OR REPLACE PROCEDURE MY_NEW_JOB_PROC --프로시저 이름
+         (P_JOB_ID   IN JOBS.JOB_ID%TYPE,
+         P_JOB_TITLE IN JOBS.JOB_TITLE%TYPE,
+         P_MIN_SAL   IN JOBS.MIN_SALARY%TYPE,
+         P_MAX_SAL   IN JOBS.MAX_SALARY%TYPE)   -- 매개변수 정의
+IS
+BEGIN
+    INSERT INTO JOBS (JOB_ID, JOB_TITLE, MIN_SALARY, MAX_SALARY, CREATE_DATE, UPDATE_DATE)
+                VALUES (P_JOB_ID, P_JOB_TITLE, P_MIN_SAL, P_MAX_SAL, SYSDATE, SYSDATE);
+    COMMIT;
+END;
+-- 프로시저 실행
+-- SELECT절에 사용 불가
+EXEC MY_NEW_JOB_PROC ('SM_JOB4', 'SAMPLE JOB1', 1000, 5000) ;   -- 무결성 제약조건으로 오류
+EXECUTE MT_NEW_JOB_PROC('SM_JOB3', 'SAMPLE JOB1', 1000, 5000) ;
+
+--삭제
+DROP PROCEDURE MY_NEW_JOB_PROC ;
+
+
+------------------------------------------------------------------
+     
+CREATE OR REPLACE PROCEDURE MY_PARAMETER_TEST_PROC (
+                P_VAR1          VARCHAR2, -- 디폴트(기본적으로 들어가있는 값)가 IN
+                P_VAR2      OUT VARCHAR2,
+                P_VAR3   IN OUT VARCHAR2)
+IS
+BEGIN
+        DBMS_OUTPUT.PUT_LINE('P_VAR1 VALUE = ' || P_VAR1);  -- IN : 내부실행 돼서 A
+        DBMS_OUTPUT.PUT_LINE('P_VAR2 VALUE = ' || P_VAR2);  -- OUT : 내부실행 안 돼서 출력X
+        DBMS_OUTPUT.PUT_LINE('P_VAR3 VALUE = ' || P_VAR3);  -- INOUT :내부실행 돼서 C 출력
+        P_VAR2 := 'B2' ;    --OUT이라 리턴
+        P_VAR3 := 'C2' ;    --INOUT이라 리턴
+END;
+
+-- IN, OUT, IN OUT 변수 테스트
+DECLARE     --해야 실행
+    V_VAR1 VARCHAR2(10) := 'A';
+    V_VAR2 VARCHAR2(10) := 'B';
+    V_VAR3 VARCHAR2(10) := 'C';
+BEGIN
+    MY_PARAMETER_TEST_PROC(V_VAR1, V_VAR2, V_VAR3);
+    DBMS_OUTPUT.PUT_LINE('V_VAR2 VALUE = ' || V_VAR2);
+    DBMS_OUTPUT.PUT_LINE('V_VAR3 VALUE = ' || V_VAR3);
+END ;
+--P_VAR1 VALUE = A
+--P_VAR2 VALUE =
+--P_VAR3 VALUE = C
+--V_VAR2 VALUE = B2
+--V_VAR3 VALUE = C2
+ ```
+ - 프로시저 문제
+ ```sql
+------------------------------------------------------------------
+--'이름을 입력받아' 학생이 있으면 'Y' 평점이
+-- 3이상이면 '합격' 텍스트와 '학번'을 리턴
+-- 3미만이면 '불합격' 텍스트와 '학번'을 리턴하는 프로시저를 만드시오.
+-- 없으면 'N'
+-- 입력1, 리턴1, 리턴, 리턴3
+-- ('양지운', 'y' '불합격', '2002110112')
+
+CREATE OR REPLACE PROCEDURE GRADE_PROC (
+                P_NAME          VARCHAR2, -- 디폴트(기본적으로 들어가있는 값)가 IN
+                P_NY        OUT VARCHAR2,
+                P_PF        OUT VARCHAR2,
+                P_NUM       OUT VARCHAR2)
+        
+    IS
+    VN_COUNT NUMBER := 0;
+    VN_GRADE VARCHAR2(100) ;
+                
+BEGIN
+      SELECT COUNT(*)
+      INTO VN_COUNT
+      FROM 학생
+      WHERE 이름 = P_NAME ;
+      
+       IF VN_COUNT = 0 THEN
+          P_NY := 'N';
+          ELSE      
+            P_NY := 'Y';
+            
+            SELECT 평점, 학번       --ELSE에 대한 SELECT
+             INTO   VN_GRADE, P_NUM
+             FROM   학생
+             WHERE  이름 = P_NAME ;
+                    IF VN_GRADE >= 3 THEN
+                    P_PF := '합격';
+                    ELSE
+                    P_PF := '불합격';
+                    END IF ;
+        END IF ;
+END ;   
+
+------------------------------------------------------------------
+--테스트
+
+DECLARE
+                V_NAME       VARCHAR2(100)   := :A; --입력 받을 값, 입력창 뜬다.
+                V_NY         VARCHAR2(100)   ;
+                P_PF         VARCHAR2(100)   ;
+                P_NUM        VARCHAR2(100)   ;
+BEGIN
+    GRADE_PROC(V_NAME, V_NY, P_PF, P_NUM);
+    IF V_NY = 'Y' THEN
+    DBMS_OUTPUT.PUT_LINE('이름 = ' || V_NAME);
+    DBMS_OUTPUT.PUT_LINE('당락 = ' || P_PF);
+    DBMS_OUTPUT.PUT_LINE('학번 = ' || P_NUM);
+    
+    ELSE
+    DBMS_OUTPUT.PUT_LINE('학생이 없습니다.' );
+    END IF;
+END ;   
+------------------------------------------------------------------
 
