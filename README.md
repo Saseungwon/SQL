@@ -3334,7 +3334,9 @@ BEGIN
             WHEN OTHERS THEN
                  DBMS_OUTPUT.PUT_LINE('기타 에러: ' || SQLERRM);
 END;
-
+```
+- 사용자 정의 예외
+```sql
 -- 사용자 정의 예외
 -- 시스템 예외 이외에 사용자가 직접 예외를 정의
 
