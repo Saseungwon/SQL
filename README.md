@@ -3004,4 +3004,433 @@ BEGIN
     END IF;
 END ;   
 ------------------------------------------------------------------
+```
+
+```sql
+---------------------------------------------------------------------------------------------------------------------------
+--문제를 위해 다음과 같이 부서테이블의 복사본을 만든다.
+
+----(1) 테이블 생성
+CREATE TABLE ch10_departments
+AS
+SELECT department_id, department_name
+  FROM departments;
+
+----(2) 테이블 제약조건 추가
+ALTER TABLE ch10_departments
+ADD CONSTRAINTS pk_ch10_departments PRIMARY KEY (department_id);  
+  
+
+--실행예제  : exec ch10_departments_crud(flag, 부서번호, 부서명);
+
+--flag I ->   INSERT 입력 받은 2개 매개변수를 입력
+--flag U ->   UPDATE ID 값에 해당하는 것에 name 을 업데이트
+--flag D ->   DELETE ID 값에 해당하는 것을 삭제
+
+--부서번호, 부서명, 작업 flag(I: insert, U:update, D:delete)을
+--매개변수로 받아 ch10_departments 테이블에
+--각각 INSERT, UPDATE, DELETE 하는 ch10_iud_dep_proc 란 이름의 프로시저를 만들어보자.
+
+--ex) EXEC ch10_iud_dep_proc ('I', 280, '개발2팀');  -- INSERT됨
+--ex) EXEC ch10_iud_dep_proc ('U', 280, '개발3팀');  -- UPDATE됨
+--ex) EXEC ch10_iud_dep_proc ('D', 280);           -- DELETE됨
+
+
+
+CREATE OR REPLACE PROCEDURE ch10_iud_dep_proc(
+         P_FLAG             VARCHAR2
+        ,P_DEPARTMENT_ID    ch10_departments.department_id%TYPE
+        ,P_DEPARTMENT_NAME  ch10_departments.department_NAME% TYPE := NULL
+)
+IS
+BEGIN
+    IF (P_FLAG = 'I') THEN
+    INSERT INTO ch10_departments(DEPARTMENT_ID, DEPARTMENT_NAME)
+    VALUES(P_DEPARTMENT_ID, P_DEPARTMENT_NAME);
+    
+    ELSIF(P_FLAG = 'U') THEN
+    UPDATE ch10_departments
+    SET DEPARTMENT_NAME = P_DEPARTMENT_NAME
+    WHERE DEPARTMENT_ID = P_DEPARTMENT_ID ;
+
+
+    ELSIF(P_FLAG = 'D') THEN
+    DELETE
+    FROM ch10_departments
+    WHERE DEPARTMENT_ID = P_DEPARTMENT_ID ;
+END IF ;
+COMMIT;
+END;
+
+DECLARE
+    VS_FLAG VARCHAR2(100) := :1;
+    VS_DEPARTMENT_ID VARCHAR2(100) := :2;
+    VS_DEPARTMENT_NAME VARCHAR2(100) := :3;
+BEGIN
+    ch10_iud_dep_proc(VS_FLAG, VS_DEPARTMENT_ID, VS_DEPARTMENT_NAME);
+    END;
+
+
+select *
+from ch10_departments;
+```
+```sql
+------------------------------------------------------------------------------------------
+	 INSERT INTO employees ( employee_id, emp_name, hire_date, department_id )
+              VALUES ( vn_employee_id, p_emp_name, TO_DATE(p_hire_month || '01'), p_department_id );
+              
+   COMMIT;              
+              
+EXCEPTION WHEN ex_invalid_depid THEN -- 사용자 정의 예외 처리
+               DBMS_OUTPUT.PUT_LINE('성공');   
+          WHEN OTHERS THEN
+               DBMS_OUTPUT.PUT_LINE('해당 부서번호가 없습니다');              
+	
+END;    
+
+------------------------------------------------------------------------------------------
+
+EXEC ch10_iud_dep_proc ('I', 10, '총무기획부');
+
+ch10_departments 테이블은 department_id가 PRIMARY KEY인데 이미 존재하는 10번 부서에 대해 INSERT 작업을 하므로
+시스템 오류(무결성 제약조건 위반)가 발생한다.  다음장 예외처리에서 해결
+-----------------------------------------------------------------------------------------
+```
+### 10. 예외처리
+- 개발하다 보면 다양한 경우의 수를 산정해서 오류 확인 및 예외처리를 한다.
+- 실행할 때 발생하는 오류를 예외라고 한다.
+- 예외에는 시스템 예외와 사용자 정의 예외(오라클에서는 예외가 아니지만 사용자가 예외로 지정)로 구분
+```sql
+EXCEPTION WHEN 예외명1 THEN 예외처리1 구문2
+          WHEN 예외명2 THEN 예외처리2 구문2
+          ....
+          WHEN OTEHRS THEN 예외처리 구문n;
+          
+
+--division
+
+
+DECLARE
+    VI_NUM NUMBER := 0;
+BEGIN
+    VI_NUM := 10 / 0 ;
+    DBMS_OUTPUT.PUT_LINE('SUCCESS!')
+EXCEPTION WHEN ZERO DIVIDE THEN
+          DBMS_OUTPUT.PUT_LINE('ZERO_DIVIDE 오류가 발생했습니다.')
+
+          WHEN OTHERS THEN
+          DBMS_OUTPUT.PUT_LINE('오류가 발생했습니다')
+
+--------------------------------------------------
+CREATE OR REPLACE PROCEDURE ch10_exception_proc
+IS
+  vi_num NUMBER := 0;
+BEGIN
+	vi_num := 10 / 0;
+	DBMS_OUTPUT.PUT_LINE('Success!');
+	
+EXCEPTION WHEN ZERO_DIVIDE THEN
+	          	 DBMS_OUTPUT.PUT_LINE('오류1');		
+	             DBMS_OUTPUT.PUT_LINE('SQL ERROR MESSAGE1: ' || SQLERRM);
+	        WHEN OTHERS THEN
+	          	 DBMS_OUTPUT.PUT_LINE('오류2');		
+	             DBMS_OUTPUT.PUT_LINE('SQL ERROR MESSAGE2: ' || SQLERRM);	
+END;	
+
+EXEC ch10_exception_proc;
+```
+- 오류구문
+```sql
+-------------------------------------------------- 오류구문
+
+CREATE OR REPLACE PROCEDURE CH10_NO_EXCEPTION_PROC
+IS
+    VI_NUM NUMBER := 0;
+BEGIN
+    VI_NUM := 10 / 0 ;
+    DBMS_OUTPUT.PUT_LINE('SUCCESS!');
+END;
+
+-- 오류 테스트
+BEGIN
+    CH10_NO_EXCEPTION_PROC;
+    DBMS_OUTPUT.PUT_LINE('SUCCESS!');
+END;
+```
+- 오류나지 않게 수정
+```sql
+-------------------------------------------------- 오류 나지 않게 수정
+CREATE OR REPLACE PROCEDURE CH10_EXCEPTION_PROC
+IS
+    VI_NUM NUMBER := 0;
+BEGIN
+    VI_NUM := 10 / 0 ;
+    DBMS_OUTPUT.PUT_LINE('SUCCESS!');
+EXCEPTION WHEN OTHERS THEN
+    DBMS_OUTPUT.PUT_LINE('오류가 발생했습니다');
+    
+END;
+```
+- 오류 수정 테스트
+```sql
+-- 오류 수정 테스트
+BEGIN
+    CH10_EXCEPTION_PROC;
+    DBMS_OUTPUT.PUT_LINE('SUCCESS!'|| SQLCODE);
+    DBMS_OUTPUT.PUT_LINE('SUCCESS!'|| SQLERRM);
+    DBMS_OUTPUT.PUT_LINE(SQLERRM(SQLCODE);
+END;
+
+--------------------------------------------------
+EXEC CH10_EXCEPTION_PROC ;
+-- SQLCODE, SQLERRM을 이용한 예외정보 참조
+
+            CREATE OR REPLACE PROCEDURE ch10_exception_proc
+            IS
+              vi_num NUMBER := 0;
+            BEGIN
+	            vi_num := 10 / 0;
+	            DBMS_OUTPUT.PUT_LINE('Success!');
+	            
+            EXCEPTION WHEN OTHERS THEN
+             DBMS_OUTPUT.PUT_LINE('오류가 발생했습니다');		
+             DBMS_OUTPUT.PUT_LINE( 'SQL ERROR CODE: '    || SQLCODE);
+             DBMS_OUTPUT.PUT_LINE( 'SQL ERROR MESSAGE: ' || SQLERRM); -- 매개변수 없는 SQLERRM
+             DBMS_OUTPUT.PUT_LINE( SQLERRM(SQLCODE)); -- 매개변수 있는 SQLERRM
+
+            END;	
+
+            EXEC ch10_exception_proc;
+```
+- RETURN문
+```sql
+--------------------------------------------------
+-- RETURN 문
+CREATE OR REPLACE PROCEDURE my_new_job_proc
+          ( p_job_id    IN  JOBS.JOB_ID%TYPE,
+            p_job_title IN  JOBS.JOB_TITLE%TYPE,
+            p_min_sal   IN  JOBS.MIN_SALARY%TYPE := 10,
+            p_max_sal   IN  JOBS.MAX_SALARY%TYPE := 100
+            --p_upd_date  OUT JOBS.UPDATE_DATE%TYPE  
+            )
+IS
+  vn_cnt NUMBER := 0;
+  vn_cur_date JOBS.UPDATE_DATE%TYPE := SYSDATE;
+BEGIN
+	-- 1000 보다 작으면 메시지 출력 후 빠져나간다
+	IF p_min_sal < 1000 THEN
+	   DBMS_OUTPUT.PUT_LINE('최소 급여값은 1000 이상이어야 합니다');
+	   RETURN;
+  END IF;
+	
+	-- 동일한 job_id가 있는지 체크
+	SELECT COUNT(*)
+	  INTO vn_cnt
+	  FROM JOBS
+	 WHERE job_id = p_job_id;
+	
+	-- 없으면 INSERT
+	IF vn_cnt = 0 THEN
+	
+	   INSERT INTO JOBS ( job_id, job_title, min_salary, max_salary, create_date, update_date)
+	             VALUES ( p_job_id, p_job_title, p_min_sal, p_max_sal, vn_cur_date, vn_cur_date);
+	             
+	ELSE -- 있으면 UPDATE
+	
+	   UPDATE JOBS
+	      SET job_title   = p_job_title,
+	          min_salary  = p_min_sal,
+	          max_salary  = p_max_sal,
+	          update_date = vn_cur_date
+	    WHERE job_id = p_job_id;
+	
+  END IF;  
+	COMMIT;
+END ;   
+
+EXEC my_new_job_proc ('SM_JOB1', 'Sample JOB1', 999, 6000); --최소 급여값은 1000 이상이어야 합니다
+
+
+--------------------------------------------------
+
+
+CREATE OR REPLACE PROCEDURE ch10_upd_jobid_proc
+                  ( p_employee_id employees.employee_id%TYPE,
+                    p_job_id      jobs.job_id%TYPE )
+IS
+  vn_cnt NUMBER := 0;
+BEGIN
+	SELECT COUNT(*)
+	  INTO vn_cnt
+	  FROM JOBS
+	 WHERE JOB_ID = p_job_id;
+	IF vn_cnt = 0 THEN
+	   DBMS_OUTPUT.PUT_LINE('job_id가 없습니다');
+	   RETURN;
+	ELSE
+	   UPDATE employees
+	      SET job_id = p_job_id
+	    WHERE employee_id = p_employee_id;
+  END IF;
+  
+  COMMIT;
+	
+END;
+
+EXEC ch10_upd_jobid_proc (200, 'SM_JOB2');
+
+--------------------------------------------------
+
+CREATE OR REPLACE PROCEDURE ch10_upd_jobid_proc
+                  ( p_employee_id employees.employee_id%TYPE,
+                    p_job_id      jobs.job_id%TYPE )
+IS
+  vn_cnt NUMBER := 0;
+BEGIN
+	SELECT 1
+	  INTO vn_cnt
+	  FROM JOBS
+	WHERE JOB_ID = p_job_id;
+	
+   UPDATE employees
+      SET job_id = p_job_id
+    WHERE employee_id = p_employee_id;
+	
+  COMMIT;
+  
+  EXCEPTION WHEN NO_DATA_FOUND THEN
+                 DBMS_OUTPUT.PUT_LINE(SQLERRM);
+                 DBMS_OUTPUT.PUT_LINE(p_job_id ||'에 해당하는 job_id가 없습니다');
+            WHEN OTHERS THEN
+                 DBMS_OUTPUT.PUT_LINE('기타 에러: ' || SQLERRM);
+END;
+                   
+
+EXEC ch10_upd_jobid_proc (100, 'SM_JOB4');
+--------------------------------------------------
+
+
+CREATE OR REPLACE PROCEDURE ch10_upd_jobid_proc
+                  ( p_employee_id employees.employee_id%TYPE,
+                    p_job_id      jobs.job_id%TYPE)
+IS
+  vn_cnt NUMBER := 0;
+BEGIN
+	
+	SELECT 1
+	  INTO vn_cnt
+	  FROM JOBS
+	 WHERE JOB_ID = p_job_id;
+	
+   UPDATE employees
+      SET job_id = p_job_id
+    WHERE employee_id = p_employee_id;
+	
+  COMMIT;
+  
+  EXCEPTION WHEN NO_DATA_FOUND THEN
+                 DBMS_OUTPUT.PUT_LINE(SQLERRM);
+                 DBMS_OUTPUT.PUT_LINE(p_job_id ||'에 해당하는 job_id가 없습니다');
+            WHEN OTHERS THEN
+                 DBMS_OUTPUT.PUT_LINE('기타 에러: ' || SQLERRM);
+END;
+
+-- 사용자 정의 예외
+-- 시스템 예외 이외에 사용자가 직접 예외를 정의
+
+    CREATE OR REPLACE PROCEDURE ch10_ins_emp_proc (
+                      p_emp_name       employees.emp_name%TYPE,
+                      p_department_id  departments.department_id%TYPE )
+    IS
+       vn_employee_id  employees.employee_id%TYPE;
+       vd_curr_date    DATE := SYSDATE;
+       vn_cnt          NUMBER := 0;
+       ex_invalid_depid EXCEPTION; -- 잘못된 부서번호일 경우 예외 정의
+    BEGIN
+	     -- 부서테이블에서 해당 부서번호 존재유무 체크
+	     SELECT COUNT(*)
+	       INTO vn_cnt
+	       FROM departments
+	      WHERE department_id = p_department_id;
+	     IF vn_cnt = 0 THEN
+	        RAISE ex_invalid_depid; -- 사용자 정의 예외 발생
+	     END IF;
+	     -- employee_id의 max 값에 +1
+	     SELECT MAX(employee_id) + 1
+	       INTO vn_employee_id
+	       FROM employees;
+	     -- 사용자예외처리 예제이므로 사원 테이블에 최소한 데이터만 입력함
+	     INSERT INTO employees ( employee_id, emp_name, hire_date, department_id )
+                  VALUES ( vn_employee_id, p_emp_name, vd_curr_date, p_department_id );
+       COMMIT;        
+          
+    EXCEPTION WHEN ex_invalid_depid THEN -- 사용자 정의 예외 처리
+                   DBMS_OUTPUT.PUT_LINE('해당 부서번호가 없습니다');
+              WHEN OTHERS THEN
+                   DBMS_OUTPUT.PUT_LINE(SQLERRM);              
+    END;                	
+
+
+EXEC ch10_ins_emp_proc ('홍길동', 999);--해당 부서번호가 없습니다.
+--------------------------------------------------
+
+CREATE OR REPLACE PROCEDURE ch10_ins_emp_proc (
+                  p_emp_name       employees.emp_name%TYPE,
+                  p_department_id  departments.department_id%TYPE,
+                  p_hire_month  VARCHAR2  )
+IS
+   vn_employee_id  employees.employee_id%TYPE;
+   vd_curr_date    DATE := SYSDATE;
+   vn_cnt          NUMBER := 0;
+   
+   ex_invalid_depid EXCEPTION; -- 잘못된 부서번호일 경우 예외 정의
+   
+   ex_invalid_month EXCEPTION; -- 잘못된 입사월인 경우 예외 정의
+   PRAGMA EXCEPTION_INIT ( ex_invalid_month, -1843); -- 예외명과 예외코드 연결
+BEGIN
+	
+	 -- 부서테이블에서 해당 부서번호 존재유무 체크
+	 SELECT COUNT(*)
+	   INTO vn_cnt
+	   FROM departments
+	  WHERE department_id = p_department_id;
+	  
+	 IF vn_cnt = 0 THEN
+	    RAISE ex_invalid_depid; -- 사용자 정의 예외 발생
+	 END IF;
+	
+	 -- 입사월 체크 (1~12월 범위를 벗어났는지 체크)
+	 IF SUBSTR(p_hire_month, 5, 2) NOT BETWEEN '01' AND '12' THEN
+	    RAISE ex_invalid_month; -- 사용자 정의 예외 발생
+	
+	 END IF;
+	
+	
+	 -- employee_id의 max 값에 +1
+	 SELECT MAX(employee_id) + 1
+	   INTO vn_employee_id
+	   FROM employees;
+	
+	 -- 사용자예외처리 예제이므로 사원 테이블에 최소한 데이터만 입력함
+	 INSERT INTO employees ( employee_id, emp_name, hire_date, department_id )
+              VALUES ( vn_employee_id, p_emp_name, TO_DATE(p_hire_month || '01'), p_department_id );
+              
+   COMMIT;              
+              
+EXCEPTION WHEN ex_invalid_depid THEN -- 사용자 정의 예외 처리
+               DBMS_OUTPUT.PUT_LINE('해당 부서번호가 없습니다');
+          WHEN ex_invalid_month THEN -- 입사월 사용자 정의 예외 처리
+               DBMS_OUTPUT.PUT_LINE(SQLCODE);
+               DBMS_OUTPUT.PUT_LINE(SQLERRM);
+               DBMS_OUTPUT.PUT_LINE('1~12월 범위를 벗어난 월입니다');               
+          WHEN OTHERS THEN
+               DBMS_OUTPUT.PUT_LINE(SQLERRM);              
+	
+END;    
+
+EXEC ch10_ins_emp_proc ('홍길동', 110, '201314'); -- 1~12월 범위를 벗어난 월입니다
+--------------------------------------------------
+
+```
+
 
