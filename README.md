@@ -3096,7 +3096,8 @@ ch10_departments 테이블은 department_id가 PRIMARY KEY인데 이미 존재�
 시스템 오류(무결성 제약조건 위반)가 발생한다.  다음장 예외처리에서 해결
 -----------------------------------------------------------------------------------------
 ```
-### 10. 예외처리
+## 📚 7장. 예외처리와 트랜잭션
+### 1. 예외처리
 - 개발하다 보면 다양한 경우의 수를 산정해서 오류 확인 및 예외처리를 한다.
 - 실행할 때 발생하는 오류를 예외라고 한다.
 - 예외에는 시스템 예외와 사용자 정의 예외(오라클에서는 예외가 아니지만 사용자가 예외로 지정)로 구분
@@ -3432,6 +3433,932 @@ END;
 
 EXEC ch10_ins_emp_proc ('홍길동', 110, '201314'); -- 1~12월 범위를 벗어난 월입니다
 --------------------------------------------------
+
+```
+
+- 시스템 예외
+```sql
+-------------------------------------------------------------------------------------
+-- divisor is equal to zero 오류
+DECLARE
+   vi_num NUMBER := 0;
+BEGIN
+	 vi_num := 10 / 0;
+	 DBMS_OUTPUT.PUT_LINE('Success!');     --- 실행되지 않음
+EXCEPTION WHEN OTHERS THEN
+	 DBMS_OUTPUT.PUT_LINE('오류가 발생했습니다');	
+END;
+
+-----------------------------------------------------  오류구문
+CREATE OR REPLACE PROCEDURE ch10_no_exception_proc
+IS
+  vi_num NUMBER := 0;
+BEGIN
+    vi_num := 10 / 0;
+    DBMS_OUTPUT.PUT_LINE('Success!');
+END;	
+------------------------------------------------------ 오류가 나지 않게 수정
+CREATE OR REPLACE PROCEDURE ch10_exception_proc
+IS
+  vi_num NUMBER := 0;
+BEGIN
+    vi_num := 10 / 0;
+    DBMS_OUTPUT.PUT_LINE('Success!');
+EXCEPTION WHEN OTHERS THEN
+     DBMS_OUTPUT.PUT_LINE('오류가 발생했습니다');		
+END;	
+
+BEGIN
+     ch10_no_exception_proc;            -- 해당 프로시져 오류 발생으로 중단됨
+     DBMS_OUTPUT.PUT_LINE('Success!');
+END;
+ ---------------------------------------------
+BEGIN
+     ch10_exception_proc;               -- 해당 프로시져 오류 발생되지만 예외처리로
+     DBMS_OUTPUT.PUT_LINE('Success!');  -- 중단되지 않고 정상종료
+END;
+```
+- SQLCODE 실행부에서 발생한 예외에 해당하는 코드를 반환
+- SQLERRM 발생한 예외에 대한 오류 메시지 반환.
+```sql
+CREATE OR REPLACE PROCEDURE ch10_exception_proc
+IS
+  vi_num NUMBER := 0;
+BEGIN
+    vi_num := 10 / 0;
+    DBMS_OUTPUT.PUT_LINE('Success!');
+    
+EXCEPTION WHEN OTHERS THEN
+ DBMS_OUTPUT.PUT_LINE('오류가 발생했습니다');		
+ DBMS_OUTPUT.PUT_LINE( 'SQL ERROR CODE: '    || SQLCODE);
+ DBMS_OUTPUT.PUT_LINE( 'SQL ERROR MESSAGE: ' || SQLERRM); -- 매개변수 없는 SQLERRM
+END;	
+
+EXEC ch10_exception_proc;
+
+```
+
+- 시스템 예외명 있는 오류
+```sql
+
+CREATE OR REPLACE PROCEDURE ch10_exception_proc
+IS
+  vi_num NUMBER := 0;
+BEGIN
+	vi_num := 10 / 0;
+	DBMS_OUTPUT.PUT_LINE('Success!');
+EXCEPTION WHEN ZERO_DIVIDE THEN      --<-- ZERO_DIVIDE 정의되어있는 오류
+	 DBMS_OUTPUT.PUT_LINE('오류가 발생했습니다');		
+	 DBMS_OUTPUT.PUT_LINE('SQL ERROR CODE: ' || SQLCODE);
+	 DBMS_OUTPUT.PUT_LINE('SQL ERROR MESSAGE: ' || SQLERRM);
+END;	
+
+EXEC ch10_exception_proc;
+
+CREATE OR REPLACE PROCEDURE ch10_exception_proc
+IS
+  vi_num NUMBER := 0;
+BEGIN
+	vi_num := 10 / 0;
+	DBMS_OUTPUT.PUT_LINE('Success!');
+	
+EXCEPTION WHEN ZERO_DIVIDE THEN
+	          	 DBMS_OUTPUT.PUT_LINE('오류1');		
+	             DBMS_OUTPUT.PUT_LINE('SQL ERROR MESSAGE1: ' || SQLERRM);
+	        WHEN OTHERS THEN
+	          	 DBMS_OUTPUT.PUT_LINE('오류2');		
+	             DBMS_OUTPUT.PUT_LINE('SQL ERROR MESSAGE2: ' || SQLERRM);	
+END;	
+
+EXEC ch10_exception_proc;
+
+
+CREATE OR REPLACE PROCEDURE ch10_upd_jobid_proc
+                  ( p_employee_id employees.employee_id%TYPE,
+                    p_job_id      jobs.job_id%TYPE )
+IS
+  vn_cnt NUMBER := 0;
+BEGIN
+	SELECT COUNT(*)
+	  INTO vn_cnt
+	  FROM JOBS
+	 WHERE JOB_ID = p_job_id;
+	IF vn_cnt = 0 THEN
+	   DBMS_OUTPUT.PUT_LINE('job_id가 없습니다');
+	   RETURN;              --RETURN 위에 에러 있으면 바로 빠져나간다.
+	ELSE
+	   UPDATE employees
+	      SET job_id = p_job_id
+	    WHERE employee_id = p_employee_id;
+  END IF;
+  
+  COMMIT;
+	
+END;
+
+EXEC ch10_upd_jobid_proc (200, 'SM_JOB2');
+
+
+
+CREATE OR REPLACE PROCEDURE ch10_upd_jobid_proc
+                  ( p_employee_id employees.employee_id%TYPE,
+                    p_job_id      jobs.job_id%TYPE )
+IS
+  vn_cnt NUMBER := 0;
+BEGIN
+	SELECT COUNT(*)
+	  INTO vn_cnt
+	  FROM JOBS
+	WHERE JOB_ID = p_job_id;
+	
+   UPDATE employees
+      SET job_id = p_job_id
+    WHERE employee_id = p_employee_id;
+	
+  COMMIT;
+  
+  EXCEPTION WHEN NO_DATA_FOUND THEN
+                 DBMS_OUTPUT.PUT_LINE(SQLERRM);
+                 DBMS_OUTPUT.PUT_LINE(p_job_id ||'에 해당하는 job_id가 없습니다');
+            WHEN OTHERS THEN
+                 DBMS_OUTPUT.PUT_LINE('기타 에러: ' || SQLERRM);
+END;
+                   
+
+EXEC ch10_upd_jobid_proc (100, 'SM_JOB4');
+
+
+CREATE OR REPLACE PROCEDURE ch10_upd_jobid_proc
+                  ( p_employee_id employees.employee_id%TYPE,
+                    p_job_id      jobs.job_id%TYPE)
+IS
+  vn_cnt NUMBER := 0;
+BEGIN
+	
+	SELECT 1
+	  INTO vn_cnt
+	  FROM JOBS
+	 WHERE JOB_ID = p_job_id;
+	
+   UPDATE employees
+      SET job_id = p_job_id
+    WHERE employee_id = p_employee_id;
+	
+  COMMIT;
+  
+  EXCEPTION WHEN NO_DATA_FOUND THEN
+                 DBMS_OUTPUT.PUT_LINE(SQLERRM);
+                 DBMS_OUTPUT.PUT_LINE(p_job_id ||'에 해당하는 job_id가 없습니다');
+            WHEN OTHERS THEN
+                 DBMS_OUTPUT.PUT_LINE('기타 에러: ' || SQLERRM);
+END;
+```
+## 예외 복습 
+#### 1.사용자 정의 예외
+-   시스템 예외 이외에 사용자가 직접 예외를 정의
+-   개발자가 직접 예외를 정의하는 방법.
+(1) 예외 정의 : 사용자_정의_예외명 EXCEPTION;
+(2) 예외발생시키기 : RAISE 사용자_정의_예외명;
+    - 시스템 예외는 해당 예외가 자동으로 검출 되지만, 사용자 정의 예외는 직접 예외를 발생시켜야 한다.
+    - RAISE 예외명 형태로 사용한다.
+  
+    (3) 발생된 예외 처리 : EXCEPTION WHEN 사용자_정의_예외명 THEN ..
+```sql
+
+    CREATE OR REPLACE PROCEDURE ch10_ins_emp_proc (
+                      p_emp_name       employees.emp_name%TYPE,
+                      p_department_id  departments.department_id%TYPE )
+    IS
+       vn_employee_id  employees.employee_id%TYPE;
+       vd_curr_date    DATE := SYSDATE;
+       vn_cnt          NUMBER := 0;
+       ex_invalid_depid EXCEPTION; -- (1) 잘못된 부서번호일 경우 예외 정의
+    BEGIN
+	     -- 부서테이블에서 해당 부서번호 존재유무 체크
+	     SELECT COUNT(*)
+	       INTO vn_cnt
+	       FROM departments
+	      WHERE department_id = p_department_id;
+          
+	     IF vn_cnt = 0 THEN
+	        RAISE ex_invalid_depid; -- (2) 사용자 정의 예외 발생 - 발생하면 EXCEPTION WHEN으로 간다.
+            
+	     END IF;
+	     -- employee_id의 max 값에 +1
+	     SELECT MAX(employee_id) + 1
+	       INTO vn_employee_id
+	       FROM employees;
+	     -- 사용자예외처리 예제이므로 사원 테이블에 최소한 데이터만 입력함
+         
+	     INSERT INTO employees ( employee_id, emp_name, hire_date, department_id )
+                  VALUES ( vn_employee_id, p_emp_name, vd_curr_date, p_department_id );
+      
+       COMMIT;        
+          
+    EXCEPTION WHEN ex_invalid_depid THEN --(3) 사용자 정의 예외 처리구간
+                   DBMS_OUTPUT.PUT_LINE('해당 부서번호가 없습니다');
+              WHEN OTHERS THEN
+                   DBMS_OUTPUT.PUT_LINE(SQLERRM);              
+    END;                	
+
+EXEC ch10_ins_emp_proc ('홍길동', 999);
+```
+
+
+#### 2. 시스템 예외에 이름 부여하기
+ - 시스템 예외에는 ZERO_DIVIDE, INVALID_NUMBER .... 와같이 정의된 예외가 있다 하지만 이들처럼 예외명이 부여된 것은 시스템 예외 중 극소수이고 나머지는 예외코드만 존재한다. 이름이 없는 코드에 이름 부여하기.
+
+1. 사용자 정의 예외 선언
+2. 사용자 정의 예외명과 시스템 예외 코드 연결 (PRAGMA EXCEPTION_INIT(사용자 정의 예외명, 시스템_예외_코드)
+
+		/*
+		   PRAGMA 컴파일러가 실행되기 전에 처리하는 전처리기 역할
+
+		   PRAGMA EXCEPTION_INIT(예외명, 예외번호)
+		   사용자 정의 예외 처리를 할 때 사용되는것으로
+		   특정 예외번호를 명시해서 컴파일러에 이 예외를 사용한다는 것을 알리는 역할
+		   (해당 예외번호에 해당되는 시스템 에러시 발생)
+    
+		*/
+3. 발생된 예외 처리:EXCEPTION WHEN 사용자 정의 예외명 THEN .... 
+```sql
+CREATE OR REPLACE PROCEDURE ch10_ins_emp_proc (
+                  p_emp_name       employees.emp_name%TYPE,
+                  p_department_id  departments.department_id%TYPE,
+                  p_hire_month  VARCHAR2  )
+IS
+   vn_employee_id  employees.employee_id%TYPE;
+   vd_curr_date    DATE := SYSDATE;
+   vn_cnt          NUMBER := 0;
+   
+   ex_invalid_depid EXCEPTION; -- 잘못된 부서번호일 경우 예외 정의
+   
+   ex_invalid_month EXCEPTION; -- 잘못된 입사월인 경우 예외 정의
+   PRAGMA EXCEPTION_INIT (ex_invalid_month, -1843); -- 예외명과 예외코드 연결
+BEGIN
+	
+	 -- 부서테이블에서 해당 부서번호 존재유무 체크
+	 SELECT COUNT(*)
+	   INTO vn_cnt
+	   FROM departments
+	  WHERE department_id = p_department_id;
+	  
+	 IF vn_cnt = 0 THEN
+	    RAISE ex_invalid_depid; -- 사용자 정의 예외 발생
+	 END IF;
+	
+	 -- 입사월 체크 (1~12월 범위를 벗어났는지 체크)
+	 IF SUBSTR(p_hire_month, 5, 2) NOT BETWEEN '01' AND '12' THEN
+	    RAISE ex_invalid_month; -- 사용자 정의 예외 발생
+	
+	 END IF;
+	
+	
+	 -- employee_id의 max 값에 +1
+	 SELECT MAX(employee_id) + 1
+	   INTO vn_employee_id
+	   FROM employees;
+	
+	 -- 사용자예외처리 예제이므로 사원 테이블에 최소한 데이터만 입력함
+	 INSERT INTO employees ( employee_id, emp_name, hire_date, department_id )
+              VALUES ( vn_employee_id, p_emp_name, TO_DATE(p_hire_month || '01'), p_department_id );
+              
+   COMMIT;              
+              
+EXCEPTION WHEN ex_invalid_depid THEN -- 사용자 정의 예외 처리
+               DBMS_OUTPUT.PUT_LINE('해당 부서번호가 없습니다');
+          WHEN ex_invalid_month THEN -- 입사월 사용자 정의 예외
+               DBMS_OUTPUT.PUT_LINE(SQLCODE);
+               DBMS_OUTPUT.PUT_LINE(SQLERRM);
+               DBMS_OUTPUT.PUT_LINE('1~12월 범위를 벗어난 월입니다');               
+          WHEN OTHERS THEN
+               DBMS_OUTPUT.PUT_LINE(SQLERRM);              	
+END;    
+
+EXEC ch10_ins_emp_proc ('홍길동', 110, '201314');
+```
+
+#### 3. 사용자 예외를 시스템 예외에 정의된 예외명을 사용
+- RAISE 사용자 정의 예외 발생시 오라클에서 정의되어 있는 예외를 발생 시킬수 있다.
+
+```sql
+CREATE OR REPLACE PROCEDURE ch10_raise_test_proc ( p_num NUMBER)
+IS
+--선언부에 아무것도 없다.
+BEGIN
+	IF p_num <= 0 THEN
+	   RAISE INVALID_NUMBER; --오라클에 정의되어있는 오류 ex)INVALID_NUMBER
+  END IF;
+  
+  DBMS_OUTPUT.PUT_LINE(p_num);
+  
+EXCEPTION WHEN INVALID_NUMBER THEN
+               DBMS_OUTPUT.PUT_LINE('양수만 입력받을 수 있습니다');
+          WHEN OTHERS THEN
+               DBMS_OUTPUT.PUT_LINE(SQLERRM);
+	
+END;
+
+EXEC ch10_raise_test_proc (-10);   
+```
+
+
+#### 4. 예외를 발생시킬 수 있는 내장 프로시저 
+- RAISE_APPLICATOIN_ERROR(예외코드, 예외 메세지);
+- 예외 코드와 메세지를 사용자가 직접 정의 /  -20000 ~ -20999 번까지 만 사용가능
+- 왜냐면 오라클에서 이미 사용하고 있는 예외들이 위 번호 구간은 사용하지 않고 있기 때문에
+
+```sql
+
+CREATE OR REPLACE PROCEDURE ch10_raise_test_proc ( p_num NUMBER)
+IS
+
+BEGIN
+	IF p_num <= 0 THEN
+	   RAISE_APPLICATION_ERROR (-20000, '양수만 입력받을 수 있단 말입니다!');
+	END IF;
+  
+  DBMS_OUTPUT.PUT_LINE(p_num);
+  
+EXCEPTION WHEN OTHERS THEN
+               DBMS_OUTPUT.PUT_LINE(SQLCODE);
+               DBMS_OUTPUT.PUT_LINE(SQLERRM);
+	
+END;
+
+EXEC ch10_raise_test_proc (-10);       
+```
+### 2. 트랜잭션
+- 트랜잭션은 '거래'라는 뜻으로 은행에서 사용하는 입금과 출금을 하는 거래를 말한다.
+- 성공적으로 절차가 끝나면 이를 완전한 거래로 승인하고
+- 거래 도중 오류가 발생하면 아예 없던 거래로 되돌리는 것이다.
+- 이러한 거래의 안정성을 확보하는  방법이 트랜잭션이다.
+
+          트랜잭션 Transaction '거래'
+          은행에서 입금과 출금을 하는 그 거래를 말하는 단어로
+          프로그래밍 언어나 오라클에서 말하는 트랜잭션도 이 개념에서 차용한것
+
+          A 은행 (출금 하여 송금) -> B 은행
+          송금 중에 오류가 발생
+          A 은행 계좌에서 돈이 빠져나가고
+          B 은행 계좌에 입금되지 않음.
+
+          오류를 파악하여 A계좌 출금 취소 or 출금된 만큼 B 은행으로 다시 송금
+          but 어떤 오류인지 파악하여 처리하기에는 많은 문제점이 있다.
+
+          그래서 나온 해결책 -> 거래가 성공적으로 모두 끝난 후에야 이를 완전한 거래로 승인,
+                               거래 도중 뭔가 오류가 발생했을 때는 이 거래를 처음부터 없었던 거래로 되돌린다.
+
+          거래의 안정성을 확보하는 방법이 바로 트랜잭션
+1. COMMIT 과 ROLLBACK
+```sql        
+-------------------------------------------------------------------------------------
+
+        CREATE TABLE ch10_sales (
+               sales_month   VARCHAR2(8),
+               country_name  VARCHAR2(40),
+               prod_category VARCHAR2(50),
+               channel_desc  VARCHAR2(20),
+               sales_amt     NUMBER );
+               
+               
+        CREATE OR REPLACE PROCEDURE iud_ch10_sales_proc
+                    ( p_sales_month ch10_sales.sales_month%TYPE )
+        IS
+
+        BEGIN
+	        INSERT INTO ch10_sales (sales_month, country_name, prod_category, channel_desc, sales_amt)
+	        SELECT A.SALES_MONTH,
+               C.COUNTRY_NAME,
+               D.PROD_CATEGORY,
+               E.CHANNEL_DESC,
+               SUM(A.AMOUNT_SOLD)
+          FROM SALES A, CUSTOMERS B, COUNTRIES C, PRODUCTS D, CHANNELS E
+         WHERE A.SALES_MONTH = p_sales_month
+           AND A.CUST_ID = B.CUST_ID
+           AND B.COUNTRY_ID = C.COUNTRY_ID
+           AND A.PROD_ID = D.PROD_ID
+           AND A.CHANNEL_ID = E.CHANNEL_ID
+         GROUP BY A.SALES_MONTH,
+                 C.COUNTRY_NAME,
+               D.PROD_CATEGORY,
+               E.CHANNEL_DESC;
+	        
+        END;            
+        -- COMMIT을 안 했기 때문에 물리적으로 저장된 게 아니다.
+        EXEC iud_ch10_sales_proc ( '199901');
+
+
+
+        -- sqlplus 접속하여 조회
+        -- 건수가 0
+        SELECT COUNT(*)
+        FROM ch10_sales ;
+
+
+        CREATE OR REPLACE PROCEDURE iud_ch10_sales_proc
+                    ( p_sales_month ch10_sales.sales_month%TYPE )
+        IS
+
+        BEGIN
+	        INSERT INTO ch10_sales (sales_month, country_name, prod_category, channel_desc, sales_amt)	   
+	        SELECT A.SALES_MONTH,
+               C.COUNTRY_NAME,
+               D.PROD_CATEGORY,
+               E.CHANNEL_DESC,
+               SUM(A.AMOUNT_SOLD)
+          FROM SALES A, CUSTOMERS B, COUNTRIES C, PRODUCTS D, CHANNELS E
+         WHERE A.SALES_MONTH = p_sales_month
+           AND A.CUST_ID = B.CUST_ID
+           AND B.COUNTRY_ID = C.COUNTRY_ID
+           AND A.PROD_ID = D.PROD_ID
+           AND A.CHANNEL_ID = E.CHANNEL_ID
+         GROUP BY A.SALES_MONTH,
+                 C.COUNTRY_NAME,
+               D.PROD_CATEGORY,
+               E.CHANNEL_DESC;
+               
+         COMMIT;
+         --ROLLBACK; 하면 되돌아감
+	        
+        END;         
+
+
+
+
+        TRUNCATE TABLE ch10_sales;
+
+        EXEC iud_ch10_sales_proc ( '199901');
+
+        SELECT COUNT(*)
+        FROM ch10_sales ;
+
+
+        TRUNCATE TABLE ch10_sales;
+
+        ALTER TABLE ch10_sales ADD CONSTRAINTS pk_ch10_sales PRIMARY KEY (sales_month, country_name, prod_category, channel_desc);
+        -- 제약조건 설정 후 테스트
+
+
+        CREATE OR REPLACE PROCEDURE iud_ch10_sales_proc
+                    ( p_sales_month ch10_sales.sales_month%TYPE )
+        IS
+
+        BEGIN
+	        
+	        INSERT INTO ch10_sales (sales_month, country_name, prod_category, channel_desc, sales_amt)	   
+	        SELECT A.SALES_MONTH,
+               C.COUNTRY_NAME,
+               D.PROD_CATEGORY,
+               E.CHANNEL_DESC,
+               SUM(A.AMOUNT_SOLD)
+          FROM SALES A, CUSTOMERS B, COUNTRIES C, PRODUCTS D, CHANNELS E
+         WHERE A.SALES_MONTH = p_sales_month
+           AND A.CUST_ID = B.CUST_ID
+           AND B.COUNTRY_ID = C.COUNTRY_ID
+           AND A.PROD_ID = D.PROD_ID
+           AND A.CHANNEL_ID = E.CHANNEL_ID
+         GROUP BY A.SALES_MONTH,
+                 C.COUNTRY_NAME,
+               D.PROD_CATEGORY,
+               E.CHANNEL_DESC;
+
+         -- 다 처리되고 오류가 없을시 커밋
+         COMMIT;
+
+        EXCEPTION WHEN OTHERS THEN
+                       DBMS_OUTPUT.PUT_LINE(SQLERRM);
+                       ROLLBACK;
+	        
+        END;   
+```
+2. SAVEPOINT
+- 보통 ROLLBACK을 명시하면 INSERT, DELETE, UPDATE, MERGE 작업 전체가 취소되는데 전체가 아닌 특정 부분에서 트랜잭션을 취소시킬 수 있다.
+- 이렇게 하려면 취소하려는 지점을 명시한 뒤, 그 지점까지 작업을 취소하는 식으로 사용하는데 이 지점을 SAVEPOINT라고 한다.
+```sql
+-------------------------------------------------------------------------------------
+        CREATE TABLE EX8_1 (
+
+              EX_NO NUMBER
+             ,EX_NM VARCHAR2(1000)
+
+        );
+
+        CREATE OR REPLACE PROCEDURE ex_8_1_proc (flag varchar2)
+        IS
+            point1 EXCEPTION;
+            point2 EXCEPTION;
+            vn_num number;
+        BEGIN
+            INSERT INTO EX8_1 VALUES (1, 'POINT BEFORE');
+            INSERT INTO EX8_1 VALUES (2, 'POINT1');
+            SAVEPOINT mysavepoint1; --롤백 지점1
+
+            INSERT INTO EX8_1 VALUES (3, 'POINT1');
+            INSERT INTO EX8_1 VALUES (4, 'POINT2');
+            SAVEPOINT mysavepoint2; --롤백 지점2
+            
+            INSERT INTO EX8_1 VALUES (5, 'POINT2');
+            
+            INSERT INTO EX8_1 VALUES (6, 'ELSE');
+            INSERT INTO EX8_1 VALUES (7, 'ELSE');
+          	INSERT INTO EX8_1 VALUES (8, 'ELSE');
+            INSERT INTO EX8_1 VALUES (9, 'ELSE');
+
+            IF flag = '1' then
+	              RAISE point1;
+	        ELSIF  flag = '2' then
+                 RAISE point2;    
+            ELSE
+                vn_num := 10 / 0;  --1도 아니고 2도 아니면  다 롤백
+            END IF;
+
+        EXCEPTION WHEN point1 THEN
+                    DBMS_OUTPUT.PUT_LINE('POINT1');
+                    ROLLBACK TO mysavepoint1;   --세이브포인트1 지점까지만 커밋
+                    COMMIT;
+                  WHEN point2 THEN
+                    DBMS_OUTPUT.PUT_LINE('POINT2');
+            	    ROLLBACK TO mysavepoint2;   --세이브포인트2 지점까지만 커밋
+                    COMMIT;
+                  WHEN OTHERS THEN
+                    DBMS_OUTPUT.PUT_LINE('ORDERS');
+              	    ROLLBACK;                   --롤백
+        END;
+
+
+        EXEC ex_8_1_proc(3);
+
+        SELECT *
+        FROM EX8_1;
+
+        TRUNCATE TABLE EX8_1;
+
+
+
+        EXEC iud_ch10_sales_proc ( '199901');
+
+        SELECT COUNT(*)
+        FROM ch10_sales ;
+
+
+        CREATE TABLE ch10_country_month_sales (
+                       sales_month   VARCHAR2(8),
+                       country_name  VARCHAR2(40),
+                       sales_amt     NUMBER,
+                       PRIMARY KEY (sales_month, country_name) );
+                      
+        CREATE OR REPLACE PROCEDURE iud_ch10_sales_proc
+                    ( p_sales_month  ch10_sales.sales_month%TYPE,
+                      p_country_name ch10_sales.country_name%TYPE )
+        IS
+
+        BEGIN
+	        
+	        --기존 데이터 삭제
+	        DELETE ch10_sales
+	         WHERE sales_month  = p_sales_month
+	           AND country_name = p_country_name;
+	              
+	        -- 신규로 월, 국가를 매개변수로 받아 INSERT
+	        -- DELETE를 수행하므로 PRIMARY KEY 중복이 발생치 않음
+	        INSERT INTO ch10_sales (sales_month, country_name, prod_category, channel_desc, sales_amt)	   
+	        SELECT A.SALES_MONTH,
+               C.COUNTRY_NAME,
+               D.PROD_CATEGORY,
+               E.CHANNEL_DESC,
+               SUM(A.AMOUNT_SOLD)
+          FROM SALES A, CUSTOMERS B, COUNTRIES C, PRODUCTS D, CHANNELS E
+         WHERE A.SALES_MONTH  = p_sales_month
+           AND C.COUNTRY_NAME = p_country_name
+           AND A.CUST_ID = B.CUST_ID
+           AND B.COUNTRY_ID = C.COUNTRY_ID
+           AND A.PROD_ID = D.PROD_ID
+           AND A.CHANNEL_ID = E.CHANNEL_ID
+         GROUP BY A.SALES_MONTH,
+                 C.COUNTRY_NAME,
+               D.PROD_CATEGORY,
+               E.CHANNEL_DESC;
+               
+         -- SAVEPOINT 확인을 위한 UPDATE
+
+          -- 현재시간에서 초를 가져와 숫자로 변환한 후 * 10 (매번 초는 달라지므로 성공적으로 실행 시 이 값은 매번 달라짐)
+         UPDATE ch10_sales
+            SET sales_amt = 10 * to_number(to_char(sysdate, 'ss'))
+          WHERE sales_month  = p_sales_month
+	           AND country_name = p_country_name;
+	           
+         -- SAVEPOINT 지정      
+
+         SAVEPOINT mysavepoint;      
+         
+         
+         -- ch10_country_month_sales 테이블에 INSERT
+         -- 중복 입력 시 PRIMARY KEY 중복됨
+         INSERT INTO ch10_country_month_sales
+               SELECT sales_month, country_name, SUM(sales_amt)
+                 FROM ch10_sales
+                WHERE sales_month  = p_sales_month
+	                AND country_name = p_country_name
+	              GROUP BY sales_month, country_name;         
+               
+         COMMIT;
+
+        EXCEPTION WHEN OTHERS THEN
+                       DBMS_OUTPUT.PUT_LINE(SQLERRM);
+                       ROLLBACK TO mysavepoint; -- SAVEPOINT 까지만 ROLLBACK
+                       COMMIT; -- SAVEPOINT 이전까지는 COMMIT
+
+	        
+        END;   
+
+        TRUNCATE TABLE ch10_sales;
+
+        EXEC iud_ch10_sales_proc ( '199901', 'Italy');
+
+        SELECT DISTINCT sales_amt
+        FROM ch10_sales;
+
+
+
+        EXEC iud_ch10_sales_proc ( '199901', 'Italy');
+
+        SELECT DISTINCT sales_amt
+        FROM ch10_sales;
+```
+```sql
+----------------------------------------------------------
+- 문제
+----------------------------------------------------------
+/*
+ 1번 문제
+ 익명블럭 or 프로시져 상관없음
+
+ (1) 어떤 학번의 학생이 몇학기에 몇학점을 들었고
+ (2) 앞으로 몇학점, 몇학기가 필요한지 학생 테이블의 모든 학생에 대해 출력해 주세요.
+ (3) 1학기에 3과목 수강가능(9학점을 취득할 수 있다), 졸업 학점은 36학점
+
+*/
+
+
+SELECT 학생.학번
+     , 학생.이름
+     , nvl(학생.학기 , 0)
+     , nvl(sum(과목.학점),0)
+FROM 학생 , 수강내역 , 과목
+WHERE 수강내역.학번(+) = 학생.학번
+and 수강내역.과목번호 = 과목.과목번호(+)
+
+
+GROUP BY  학생.학번
+        , 학생.이름
+        , 학생.학기
+ ;
+
+
+
+     CREATE OR REPLACE PROCEDURE jolup_proc
+                    ( p_학번  IN OUT 학생.학번%TYPE,
+                      p_이름  IN OUT 학생.이름%TYPE,
+                      p_학기  IN OUT 학생.학기%TYPE,
+                      p_학점  IN OUT 과목.학점%TYPE)
+        IS
+        vn_학점          학생.학번%TYPE;
+        vn_cnt           NUMBER ;
+        BEGIN
+          select count(*)
+          into vn_cnt
+          from 학생 ;
+          
+            FOR i in  1..vn_cnt
+            LOOP
+            SELECT t2.학번, t2.이름, t2.학학, t2.과학
+                        INTO p_학번, p_이름, p_학기, p_학점
+            FROM(
+              SELECT ROWNUM RNUM ,  t1.학번, t1.이름, t1.학학, t1.과학
+                FROM
+                    (SELECT 학생.학번
+                         , 학생.이름
+                         , nvl(학생.학기 , 0) as 학학
+                         , nvl(sum(과목.학점),0)as 과학
+                 
+                    FROM 학생 , 수강내역 , 과목
+                    WHERE 수강내역.학번(+) = 학생.학번
+                    and 수강내역.과목번호 = 과목.과목번호(+)
+                    
+                    GROUP BY  학생.학번
+                            , 학생.이름
+                            , 학생.학기 )T1) T2
+                WHERE T2.RNUM = i ;
+                DBMS_OUTPUT.PUT_LINE('[기본자료]학번 : ' || p_학번 || ' 이름 : ' || p_이름 || ' 수강학기 : '|| p_학기 || ' 취득학번 : ' || p_학점);
+             END LOOP;           
+
+
+        END;           
+        
+        
+        DECLARE
+        p_학번    VARCHAR2(100);
+        p_이름    VARCHAR2(100);
+        p_학기    NUMBER;
+        p_학점    NUMBER;
+        
+        BEGIN
+        jolup_proc(p_학번, p_이름 ,p_학기, p_학점);
+        END ;
+        
+        
+EXEC jolup_proc(2001110141);
+
+
+select count(*)
+        
+          from 학생 ;
+수강내역.학번 = 학생.학번
+수강내역.과목번호 = 과목.과목번호
+과목.학점
+
+SELECT *
+            FROM(
+              SELECT ROWNUM RNUM ,  T1.*
+                FROM
+                    (SELECT 학생.학번
+                         , 학생.이름
+                         , nvl(학생.학기 , 0)
+                         , nvl(sum(과목.학점),0)
+                
+                    FROM 학생 , 수강내역 , 과목
+                    WHERE 수강내역.학번(+) = 학생.학번
+                    and 수강내역.과목번호 = 과목.과목번호(+)
+                    AND ROWNUM = 1  
+                    
+                    GROUP BY  학생.학번
+                            , 학생.이름
+                            , 학생.학기 )T1) T2
+                WHERE T2.RNUM = 1 ;
+ ----------------------------------------------------------
+[기존 자료]학번:2001110141 이름:윤지미 수강 학기:3 취득 학점:0
+[산출 자료]학번:2001110141 이름:윤지미 최소 학기:4 필요 학점:36
+----------------------------------------------------------
+----------------------------------------------------------
+[기존 자료]학번:2021000001 이름:팽수 수강 학기:0 취득 학점:0
+[산출 자료]학번:2021000001 이름:팽수 최소 학기:4 필요 학점:36
+----------------------------------------------------------
+----------------------------------------------------------
+[기존 자료]학번:2001211121 이름:박지훈 수강 학기:4 취득 학점:8
+[산출 자료]학번:2001211121 이름:박지훈 최소 학기:4 필요 학점:28
+----------------------------------------------------------
+----------------------------------------------------------
+[기존 자료]학번:2001110131 이름:김기성 수강 학기:6 취득 학점:8
+[산출 자료]학번:2001110131 이름:김기성 최소 학기:4 필요 학점:28
+----------------------------------------------------------
+----------------------------------------------------------
+[기존 자료]학번:1997131542 이름:최숙경 수강 학기:3 취득 학점:14
+[산출 자료]학번:1997131542 이름:최숙경 최소 학기:3 필요 학점:22
+----------------------------------------------------------
+----------------------------------------------------------
+[기존 자료]학번:2021000003 이름:팽수3 수강 학기:0 취득 학점:0
+[산출 자료]학번:2021000003 이름:팽수3 최소 학기:4 필요 학점:36
+----------------------------------------------------------
+----------------------------------------------------------
+[기존 자료]학번:2002110112 이름:양지운 수강 학기:5 취득 학점:0
+[산출 자료]학번:2002110112 이름:양지운 최소 학기:4 필요 학점:36
+----------------------------------------------------------
+----------------------------------------------------------
+[기존 자료]학번:2001110141 이름:윤지미 수강 학기:3 취득 학점:0
+[산출 자료]학번:2001110141 이름:윤지미 최소 학기:4 필요 학점:36
+----------------------------------------------------------
+----------------------------------------------------------
+[기존 자료]학번:1998131205 이름:정지미 수강 학기:6 취득 학점:5
+[산출 자료]학번:1998131205 이름:정지미 최소 학기:4 필요 학점:31
+----------------------------------------------------------
+----------------------------------------------------------
+[기존 자료]학번:2021000002 이름:팽수2 수강 학기:0 취득 학점:0
+[산출 자료]학번:2021000002 이름:팽수2 최소 학기:4 필요 학점:36
+----------------------------------------------------------
+----------------------------------------------------------
+[기존 자료]학번:1999232102 이름:이완재 수강 학기:6 취득 학점:8
+[산출 자료]학번:1999232102 이름:이완재 최소 학기:4 필요 학점:28
+----------------------------------------------------------
+----------------------------------------------------------
+[기존 자료]학번:2002110110 이름:홍길동 수강 학기:5 취득 학점:3
+[산출 자료]학번:2002110110 이름:홍길동 최소 학기:4 필요 학점:33
+----------------------------------------------------------
+----------------------------------------------------------
+[기존 자료]학번:2002110111 이름:김성동 수강 학기:4 취득 학점:0
+[산출 자료]학번:2002110111 이름:김성동 최소 학기:4 필요 학점:36
+----------------------------------------------------------
+
+
+----------------------------------------------------------
+--  2번 문제 위 익명블럭을 작성 후 과목 정보도 나올 수 있도록 출력하시오
+----------------------------------------------------------
+[기존자료]
+ 학번:2021000001 이름:팽수 수강학기:0 취득학점:0
+[수강 내용]
+ 자료가 없습니다.
+[산출자료]
+ 최소학기:4 필요학점:36
+----------------------------------------------------------
+----------------------------------------------------------
+[기존자료]
+ 학번:2001211121 이름:박지훈 수강학기:4 취득학점:8
+[수강 내용]
+ 과목:현대경영학 학점:2
+ 과목:회계학원론 학점:3
+ 과목:경영정보시스템 학점:3
+[산출자료]
+ 최소학기:4 필요학점:28
+----------------------------------------------------------
+----------------------------------------------------------
+[기존자료]
+ 학번:2001110131 이름:김기성 수강학기:6 취득학점:8
+[수강 내용]
+ 과목:현대경영학 학점:2
+ 과목:경영정보시스템 학점:3
+ 과목:회계학원론 학점:3
+[산출자료]
+ 최소학기:4 필요학점:28
+----------------------------------------------------------
+----------------------------------------------------------
+[기존자료]
+ 학번:1997131542 이름:최숙경 수강학기:3 취득학점:14
+[수강 내용]
+ 과목:현대경영학 학점:2
+ 과목:경영정보시스템 학점:3
+ 과목:회계학원론 학점:3
+ 과목:마케팅개론 학점:3
+ 과목:인사관리 학점:3
+[산출자료]
+ 최소학기:3 필요학점:22
+----------------------------------------------------------
+----------------------------------------------------------
+[기존자료]
+ 학번:2021000003 이름:팽수3 수강학기:0 취득학점:0
+[수강 내용]
+ 자료가 없습니다.
+[산출자료]
+ 최소학기:4 필요학점:36
+----------------------------------------------------------
+----------------------------------------------------------
+[기존자료]
+ 학번:2002110112 이름:양지운 수강학기:5 취득학점:0
+[수강 내용]
+ 자료가 없습니다.
+[산출자료]
+ 최소학기:4 필요학점:36
+----------------------------------------------------------
+----------------------------------------------------------
+[기존자료]
+ 학번:2001110141 이름:윤지미 수강학기:3 취득학점:0
+[수강 내용]
+ 자료가 없습니다.
+[산출자료]
+ 최소학기:4 필요학점:36
+----------------------------------------------------------
+----------------------------------------------------------
+[기존자료]
+ 학번:1998131205 이름:정지미 수강학기:6 취득학점:5
+[수강 내용]
+ 과목:현대경영학 학점:2
+ 과목:재무관리 학점:3
+[산출자료]
+ 최소학기:4 필요학점:31
+----------------------------------------------------------
+----------------------------------------------------------
+[기존자료]
+ 학번:2021000002 이름:팽수2 수강학기:0 취득학점:0
+[수강 내용]
+ 자료가 없습니다.
+[산출자료]
+ 최소학기:4 필요학점:36
+----------------------------------------------------------
+----------------------------------------------------------
+[기존자료]
+ 학번:1999232102 이름:이완재 수강학기:6 취득학점:8
+[수강 내용]
+ 과목:현대경영학 학점:2
+ 과목:회계학원론 학점:3
+ 과목:마케팅개론 학점:3
+[산출자료]
+ 최소학기:4 필요학점:28
+----------------------------------------------------------
+----------------------------------------------------------
+[기존자료]
+ 학번:2002110110 이름:홍길동 수강학기:5 취득학점:3
+[수강 내용]
+ 과목:마케팅개론 학점:3
+[산출자료]
+ 최소학기:4 필요학점:33
+----------------------------------------------------------
+----------------------------------------------------------
+[기존자료]
+ 학번:2002110111 이름:김성동 수강학기:4 취득학점:0
+[수강 내용]
+ 자료가 없습니다.
+[산출자료]
+ 최소학기:4 필요학점:36
+----------------------------------------------------------
 
 ```
 
