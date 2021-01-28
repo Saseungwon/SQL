@@ -4363,3 +4363,1295 @@ SELECT *
 ```
 
 
+
+## 7. 커서, 레코드, 컬렉션
+### 1. 커서
+- 커서 : 특정 sql 문장을 처리한 결과를 담고 있는 영역을 가리키는 일종의 포인터로, 커서를 사용하면 처리된 sql 문장의 결과 집합에 접근할 수 있다. 잠깐 참조하는 느낌
+- 커서의 종류
+  - 묵시적 커서 : 오라클 내부에서 자동으로 생성되어 사용
+  - 명시적 커서 : 사용자가 직접 정의해서 사용하는 커서
+
+
+1. 묵시적 커서 
+```sql
+-------------------------------------------------------------------------------------
+SET SERVEROUTPUT ON
+SET TIMING ON
+-- 묵시적 커서와 커서속성
+/**
+    커서란 특정 SQL문장을 처리한 결과를 담고 있는 영역(PRIVATE SQL 이라는 메모리 영역)을 가리키는 일종의 포인터로,
+    커서를 사용하면 처리된 SQL 문장의 결과 집합에 접근할 수 있다.
+    
+    개별 로우에 순차적으로 접근이 가능하다.
+    
+    종류
+    1. 묵시적 커서 (오라클 내부에서 자동생성) PL/SQL 블로에서 실행하는 SQL 문장
+      (INSERT, UPDATE, SELECT .. ) 이 실행될 때마다 자동으로 생성.
+    2. 명시적 커서 (사용자가 직접 정의)
+    순서 open -> fetch -> close
+    명시적은 선언도 필요
+*/
+
+--1
+DECLARE
+  vn_department_id employees.department_id%TYPE := 80;
+BEGIN
+	-- 80번 부서의 사원이름을 자신의 이름으로 갱신
+	 UPDATE employees
+	     SET emp_name = emp_name
+	   WHERE department_id = vn_department_id;	   
+	   
+	-- 몇 건의 데이터가 갱신됐는지 출력  없으면 0을 반환
+	DBMS_OUTPUT.PUT_LINE('묵시적 커서 :'||SQL%ROWCOUNT); --묵시적 커서 :34
+	COMMIT;
+END;
+
+```
+
+2. 명시적 커서 
+```sql
+-- 명시적 커서
+--2
+DECLARE
+   -- 사원명을 받아오기 위한 변수 선언
+   vs_emp_name employees.emp_name%TYPE;
+
+   --1.단계 커서 선언 : 명칭과 사용 쿼리 선언 매개변수로 부서코드를 받는다.
+   -- CURSOR 커서명 [(매개변수1, 매개변수2, ..)]
+
+   CURSOR cur_emp_dep ( cp_department_id employees.department_id%TYPE )
+
+   IS
+
+   SELECT emp_name
+     FROM employees
+    WHERE department_id = cp_department_id;
+
+BEGIN
+	--2.단계 커서 오픈 (매개변수로 90번 부서를 전달)
+	OPEN cur_emp_dep (90);
+	--3.단계 패치 단계에서 커서 사용
+	LOOP
+	
+    	  -- 반복문을 통한 커서 패치작업
+	  -- 커서 결과로 나온 로우를 패치함 (사원명을 변수에 할당)
+	  FETCH cur_emp_dep INTO vs_emp_name;
+	  -- 더 이상 패치된 참조로우가 없는 경우 LOOP 탈출
+	  EXIT WHEN cur_emp_dep%NOTFOUND;
+	  -- 사원명을 출력
+	  DBMS_OUTPUT.PUT_LINE(vs_emp_name);
+
+  END LOOP;
+  --4.단계 커서 닫기(반드시 닫아야함)
+  CLOSE cur_emp_dep;
+
+END;
+```
+3. 커서와 FOR문
+```sql
+	
+-- 커서와 FOR문
+--3
+DECLARE
+   -- 커서 선언, 매개변수로 부서코드를 받는다.
+   CURSOR cur_emp_dep ( cp_department_id employees.department_id%TYPE )
+
+   IS               --is begin 사이에 커서를 사용할 커리를 작성
+   SELECT emp_name
+     FROM employees
+    WHERE department_id = cp_department_id;
+    
+BEGIN
+	-- FOR문을 통한 커서 패치작업 ("초깃값.. 최종값" 대신 커서가 위치한다)
+	-- FOR 레코드 IN 커서명(매개변수1, 매개변수2,...)
+
+	FOR emp_rec IN cur_emp_dep(90)
+	LOOP
+	  -- 사원명을 출력, 레코드 타입은 레코드명.컬럼명 형태로 사용
+	  DBMS_OUTPUT.PUT_LINE(emp_rec.emp_name);
+  END LOOP;
+END;
+
+--FOR문에 직접 커서 정의 넣을 수 있다.
+--4
+DECLARE
+BEGIN
+	-- FOR문을 통한 커서 패치작업 ( 커서 선언시 정의 부분을 FOR문에 직접 기술)
+	FOR emp_rec IN ( SELECT emp_name
+                         FROM employees
+                         WHERE department_id = 90	
+	               )
+	LOOP
+	  -- 사원명을 출력, 레코드 타입은 레코드명.컬럼명 형태로 사용
+	  DBMS_OUTPUT.PUT_LINE(emp_rec.emp_name);
+	END LOOP;
+END;
+
+/**
+ 명시적 커서는 "CURSOR 커서명 IS SELECT ..." 형태로 선언한 뒤, '커서명'을 참조해서 사용했다.
+ 즉 명시적 커서를 사용할 때는 커서명을 마치 변수처럼 사용했는데, 정확히 말하면
+ 변수라기보다는 '상수'라고 할 수 있다.
+ 커서를 변수처럼 할당한뒤 다시 다른 값을 할당해서 사용하려면 커서변수를 사용해야한다.
+**/
+--5
+DECLARE
+   -- 사원명을 받아오기 위한 변수 선언
+   vs_emp_name employees.emp_name%TYPE;
+
+   TYPE emp_dep_curtype IS REF CURSOR;                               -- 약한 커서타입 선언
+-- TYPE emp_dep_curtype IS REF CURSOR RETURN departments%ROWTYPE;    -- 강한 커서타입 선언 (집합을 고정해서)
+   -- 커서변수 선언
+   emp_dep_curvar emp_dep_curtype; -- 커서변수 선언
+BEGIN
+  -- 커서변수를 사용한 커서정의 및 오픈
+  OPEN emp_dep_curvar FOR SELECT emp_name
+                          FROM employees
+                          WHERE department_id = 90	;
+  -- LOOP문
+  LOOP
+     -- 커서변수를 사용해 결과집합을  vs_emp_name 변수에 할당
+     FETCH emp_dep_curvar INTO vs_emp_name;
+	  -- 더 이상 패치된 참조로우가 없는 경우 LOOP 탈출(커서변수를 이용한 커서속성 참조)
+	  EXIT WHEN emp_dep_curvar%NOTFOUND;
+	  -- 사원명을 출력
+	  DBMS_OUTPUT.PUT_LINE(vs_emp_name);
+  END LOOP;
+  CLOSE emp_dep_curvar;
+END;
+
+--6------------------------------------------------------------------------------------
+DECLARE
+   -- 사원명을 받아오기 위한 변수 선언
+   vs_emp_name employees.emp_name%TYPE;
+   -- SYS_REFCURSOR 타입의 커서변수 선언
+   -- oracle 에서 제공하는 커서타입
+   emp_dep_curvar SYS_REFCURSOR;
+BEGIN
+  -- 커서변수를 사용한 커서정의 및 오픈
+  OPEN emp_dep_curvar FOR SELECT emp_name
+                     FROM employees
+                    WHERE department_id = 90;
+  -- LOOP문
+  LOOP
+     -- 커서변수를 사용해 결과집합을  vs_emp_name 변수에 할당
+     FETCH emp_dep_curvar INTO vs_emp_name;
+	  -- 더 이상 패치된 참조로우가 없는 경우 LOOP 탈출(커서변수를 이용한 커서속성 참조)
+	  EXIT WHEN emp_dep_curvar%NOTFOUND;
+	  -- 사원명을 출력
+	  DBMS_OUTPUT.PUT_LINE(vs_emp_name);
+  END LOOP;
+  CLOSE emp_dep_curvar;
+END;
+
+-- 커서변수를 매개변수로 전달
+--7----------------------------------------------------------------------------------------------
+DECLARE
+    -- (ⅰ) SYS_REFCURSOR 타입의 커서변수 선언
+   emp_dep_curvar SYS_REFCURSOR;
+    -- 사원명을 받아오기 위한 변수 선언
+   vs_emp_name employees.emp_name%TYPE;
+
+   -- (ⅱ) 커서변수를 매개변수르 받는 프로시저, 매개변수는 SYS_REFCURSOR 타입의 IN OUT형
+   PROCEDURE test_cursor_argu ( p_curvar IN OUT SYS_REFCURSOR)
+   IS
+       c_temp_curvar SYS_REFCURSOR;
+   BEGIN
+       -- 커서를 오픈한다
+       OPEN c_temp_curvar FOR
+             SELECT emp_name
+               FROM employees
+             WHERE department_id = 90;
+        -- (ⅲ) 오픈한 커서를 IN OUT 매개변수에 다시 할당한다.
+        p_curvar := c_temp_curvar;
+   END;
+
+BEGIN
+   -- 프로시저를 호출한다.
+   test_cursor_argu (emp_dep_curvar);
+   -- (ⅳ) 전달해서 받은 매개변수를 LOOP문을 사용해 결과를 출력한다.
+   LOOP
+     -- 커서변수를 사용해 결과집합을  vs_emp_name 변수에 할당
+     FETCH emp_dep_curvar INTO vs_emp_name;
+	  -- 더 이상 패치된 참조로우가 없는 경우 LOOP 탈출(커서변수를 이용한 커서속성 참조)
+	  EXIT WHEN emp_dep_curvar%NOTFOUND;
+	  -- 사원명을 출력
+	  DBMS_OUTPUT.PUT_LINE(vs_emp_name);
+  END LOOP;
+END;
+
+--8
+------------------------------------------------------------------------------------------------------
+CREATE  PROCEDURE test_cursor_argu ( p_curvar IN OUT SYS_REFCURSOR)
+   IS
+       c_temp_curvar SYS_REFCURSOR;
+   BEGIN
+       -- 커서를 오픈한다
+       OPEN c_temp_curvar FOR
+             SELECT emp_name
+               FROM employees
+             WHERE department_id = 90;
+        -- (ⅲ) 오픈한 커서를 IN OUT 매개변수에 다시 할당한다.
+        p_curvar := c_temp_curvar;
+   END;
+
+-- 위에 프로시져를 아래와 같이 사용가능 -------------------------------------------------
+DECLARE
+    -- (ⅰ) SYS_REFCURSOR 타입의 커서변수 선언
+   emp_dep_curvar SYS_REFCURSOR;
+    -- 사원명을 받아오기 위한 변수 선언
+   vs_emp_name employees.emp_name%TYPE;
+   -- (ⅱ) 커서변수를 매개변수르 받는 프로시저, 매개변수는 SYS_REFCURSOR 타입의 IN OUT형
+BEGIN
+   -- 프로시저를 호출한다.
+   test_cursor_argu (emp_dep_curvar);
+   -- (ⅳ) 전달해서 받은 매개변수를 LOOP문을 사용해 결과를 출력한다.
+   LOOP
+     -- 커서변수를 사용해 결과집합을  vs_emp_name 변수에 할당
+     FETCH emp_dep_curvar INTO vs_emp_name;
+	  -- 더 이상 패치된 참조로우가 없는 경우 LOOP 탈출(커서변수를 이용한 커서속성 참조)
+	  EXIT WHEN emp_dep_curvar%NOTFOUND;
+	  -- 사원명을 출력
+	  DBMS_OUTPUT.PUT_LINE(vs_emp_name);
+  END LOOP;
+END;
+```
+3. 커서 표현식
+```sql
+
+--9 커서 표현식 ----------------------------------------------------------------------------------------------
+
+DECLARE
+    -- 커서표현식을 사용한 명시적 커서 선언
+    CURSOR mytest_cursor IS
+         SELECT d.department_name,      
+                  CURSOR ( SELECT e.emp_name
+                                 FROM employees e
+                                WHERE e.department_id = d.department_id) AS emp_name        
+          FROM departments d
+        WHERE d.department_id = 90;
+    -- 부서명을 받아오기 위한 변수
+    vs_department_name departments.department_name%TYPE;
+    --커서표현식 결과를 받기 위한 커서타입변수
+    c_emp_name SYS_REFCURSOR;
+    -- 사원명을 받는 변수
+    vs_emp_name employees.emp_name%TYPE;
+BEGIN
+    -- 커서오픈
+    OPEN mytest_cursor;
+    -- 명시적 커서를 받아오는 첫 번째 LOOP
+    LOOP
+       -- 부서명은 변수, 사원명 결과집합은 커서변수에 패치
+       FETCH mytest_cursor INTO vs_department_name, c_emp_name;
+       EXIT WHEN mytest_cursor%NOTFOUND;
+       DBMS_OUTPUT.PUT_LINE ('부서명 : ' || vs_department_name);
+       -- 사원명을 출력하기 위한 두 번째 LOOP
+       LOOP
+          -- 사원명 패치
+          FETCH c_emp_name INTO vs_emp_name;
+          EXIT WHEN c_emp_name%NOTFOUND;
+          DBMS_OUTPUT.PUT_LINE('   사원명 : ' || vs_emp_name);
+       END LOOP; -- 두 번째 LOOP 종료    
+    END LOOP; -- 첫 번째 LOOP 종료
+    CLOSE mytest_cursor;
+END;
+
+--10------------------------------------------------------------------------------------------------------------------------------------------------------------------- 커서 끝
+--커서를 활용해서 어제 문제를 수정 하시오(해결X)
+
+/*
+
+ (1) 어떤 학번의 학생이 몇학기에 몇학점을 들었고
+ (2) 앞으로 몇학점, 몇학기가 필요한지 학생 테이블의 모든 학생에 대해 출력해 주세요.
+ (3) 1학기에 3과목 (9학점을 취득할 수 있다.), 졸업 학점은 36학점
+ (4)고정 값은 상수로 지정해 주세요.
+
+*/
+
+ ----------------------------------------------------------
+[기존 자료]학번:2001110141 이름:윤지미 수강 학기:3 취득 학점:0
+[산출 자료]학번:2001110141 이름:윤지미 최소 학기:4 필요 학점:36
+----------------------------------------------------------
+
+---학기,학점 쿼-------------------------------------------------------------------------------------------------------
+ 
+SELECT B.hak_no
+     , B.name
+     , B.max_hak_gi
+     , B.sum_hak_jum
+FROM (
+        SELECT A.*
+              , rownum  as rnum
+        FROM (
+                SELECT 학생.학번            AS hak_no
+                      ,학생.이름            AS name
+                      ,NVL(MAX(학생.학기),0)       AS max_hak_gi
+                      ,NVL(SUM(과목.학점),0)       AS sum_hak_jum
+                FROM 학생, 수강내역, 과목
+                WHERE 학생.학번 = 수강내역.학번 (+)
+                AND   수강내역.과목번호 = 과목.과목번호(+)
+                GROUP BY 학생.학번
+                       , 학생.이름
+                ORDER BY  NVL(SUM(과목.학점),0)  DESC      
+             ) A
+    )B
+WHERE B.rnum = 1;
+---과목쿼리 -----------------------------------------------------------------------------------------------------
+
+SELECT A.subject
+    ,  A.hak_jum
+FROM (
+        SELECT  과목.과목이름 AS subject
+                , 과목.학점    AS  hak_jum
+              ,rownum      as sub_rnum
+        FROM 수강내역, 과목
+        WHERE 수강내역.과목번호 = 과목.과목번호(+)
+        AND 수강내역.학번 = 1997131542
+     ) A
+WHERE A.sub_rnum = 1;
+------------------------------------------------------------------------------------------------
+--익명블럭으로----------------------------------------------------------------------------------------------
+  
+  
+DECLARE
+   --상수------------------------------
+   cn_max_num   CONSTANT NUMBER := 9;        /*1년 수강하가능 학점*/
+   cn_grade_num CONSTANT NUMBER := 36;       /*졸업가능 학점*/
+   --반복건수-------------------------
+   vn_sum_cnt            NUMBER;             /*전체 학생 수*/
+   --기존자료---------------------------
+   vn_hak_no             NUMBER := 0;        /*학점*/
+   vn_name               VARCHAR2 (20);      /*이름*/
+   vn_before_hak_gi      NUMBER := 0;        /*이수학기*/
+   vn_before_hak_jum     NUMBER := 0;        /*이수학점*/
+   --필요자료---------------------------
+   vn_after_hak_gi       NUMBER := 0;        /*필요학점*/
+   vn_after_hak_jum      NUMBER := 0;        /*필수학기*/
+
+BEGIN
+   SELECT COUNT(DISTINCT 학번) AS CNT
+   INTO vn_sum_cnt
+   FROM 학생;
+   
+   FOR i in 1..vn_sum_cnt -- vn_cnt가 9보다 작거나 같을 경우에만 반복처리
+   LOOP
+        SELECT B.hak_no
+             , B.name
+             , NVL(B.max_hak_gi,0) as max_hak_gi
+             , NVL(B.sum_hak_jum,0) as sum_hak_jum
+        INTO vn_hak_no, vn_name, vn_before_hak_gi, vn_before_hak_jum    
+        FROM (
+                SELECT A.*
+                      , rownum  as rnum
+                FROM (
+                        SELECT 학생.학번            AS hak_no
+                              ,학생.이름            AS name
+                              ,MAX(학생.학기)       AS max_hak_gi
+                              ,SUM(과목.학점)       AS sum_hak_jum
+                        FROM 학생, 수강내역, 과목
+                        WHERE 학생.학번 = 수강내역.학번 (+)
+                        AND   수강내역.과목번호 = 과목.과목번호(+)
+                        GROUP BY 학생.학번
+                               , 학생.이름
+                     ) A
+            )B
+        WHERE B.rnum = i;
+        
+        vn_after_hak_jum := cn_grade_num - vn_before_hak_jum;
+        vn_after_hak_gi  := CEIL(vn_after_hak_jum / cn_max_num);
+
+        DBMS_OUTPUT.PUT_LINE ('----------------------------------------------------------') ;
+        DBMS_OUTPUT.PUT_LINE ('[기존 자료]학번:'|| vn_hak_no || ' 이름:' || vn_name || ' 수강 학기:' || vn_before_hak_gi || ' 취득 학점:'||vn_before_hak_jum );
+        DBMS_OUTPUT.PUT_LINE ('[산출 자료]학번:'|| vn_hak_no || ' 이름:' || vn_name || ' 최소 학기:' || vn_after_hak_gi || ' 필요 학점:'||vn_after_hak_jum );
+        DBMS_OUTPUT.PUT_LINE ('----------------------------------------------------------') ;
+   END LOOP;    
+END;
+  
+---(2) 과목 추가 익명블---------------------------------------------------------------------------------------------
+
+DECLARE
+   --상수------------------------------
+   cn_max_num   CONSTANT NUMBER := 9;        /*1년 수강하가능 학점*/
+   cn_grade_num CONSTANT NUMBER := 36;       /*졸업가능 학점*/
+   --반복건수---------------------------
+   vn_sum_cnt            NUMBER;             /*전체 학생 수*/
+   --기존자료---------------------------
+   vn_hak_no             NUMBER := 0;        /*학점*/
+   vn_name               VARCHAR2 (20);      /*이름*/
+   vn_before_hak_gi      NUMBER := 0;        /*이수학기*/
+   vn_before_hak_jum     NUMBER := 0;        /*이수학점*/
+   --------------------------------
+   vn_after_hak_gi       NUMBER := 0;        /*필요학점*/
+   vn_after_hak_jum      NUMBER := 0;        /*필수학기*/
+   --------------------------------
+   vn_sub_cnt            NUMBER := 0;        /*과목 건수*/
+   vn_subject            VARCHAR2(100);      /*과목 이름*/
+   vn_subject_hak_jum    NUMBER := 0;        /*과목 점수*/
+   
+BEGIN
+   /* 전체 대상 학생 건수*/
+   SELECT COUNT(DISTINCT 학번) AS CNT
+   INTO vn_sum_cnt
+   FROM 학생;
+   /* 전체 대상 학생 건수만큼 반복*/
+   FOR i in 1..vn_sum_cnt -- vn_cnt가 9보다 작거나 같을 경우에만 반복처리
+   LOOP
+        /* 기존 학생정보 검색*/
+        SELECT B.hak_no
+             , B.name
+             , NVL(B.max_hak_gi,0)  as max_hak_gi
+             , NVL(B.sum_hak_jum,0) as sum_hak_jum
+        INTO vn_hak_no, vn_name, vn_before_hak_gi, vn_before_hak_jum    
+        FROM (
+                SELECT A.*
+                      , rownum  as rnum
+                FROM (
+                        SELECT 학생.학번            AS hak_no
+                              ,학생.이름            AS name
+                              ,MAX(학생.학기)       AS max_hak_gi
+                              ,SUM(과목.학점)       AS sum_hak_jum
+                        FROM 학생, 수강내역, 과목
+                        WHERE 학생.학번 = 수강내역.학번 (+)
+                        AND   수강내역.과목번호 = 과목.과목번호(+)
+                        GROUP BY 학생.학번
+                               , 학생.이름
+                     ) A
+            )B
+        WHERE B.rnum = i;
+                    /* 필요학점*/
+        vn_after_hak_jum := cn_grade_num - vn_before_hak_jum;
+                     /* 최소학기 ( 남은 학점/1년 이수가능학점(9) )올림함수 사용 */
+        vn_after_hak_gi  := CEIL(vn_after_hak_jum / cn_max_num);
+
+        DBMS_OUTPUT.PUT_LINE ('----------------------------------------------------------') ;
+        DBMS_OUTPUT.PUT_LINE ('[기존자료]');
+        DBMS_OUTPUT.PUT_LINE (' 학번:'|| vn_hak_no || ' 이름:' || vn_name ||' 수강학기:' || vn_before_hak_gi || ' 취득학점:'||vn_before_hak_jum);
+                    /* 이수과목 건수 */
+
+	
+	SELECT COUNT(*) AS sub_cnt
+	INTO vn_sub_cnt
+        FROM 수강내역, 과목
+        WHERE 수강내역.과목번호 = 과목.과목번호(+)
+        AND 수강내역.학번 = vn_hak_no;
+       
+        DBMS_OUTPUT.PUT_LINE ('[수강 내용]');
+                    /* 이수과목 정보가 있을 경우 */
+        IF vn_sub_cnt != 0 THEN
+                              /* 이수과목 정보건수 만큼 */
+            FOR i in 1..vn_sub_cnt LOOP
+                SELECT A.subject
+                    ,  A.hak_jum
+                INTO vn_subject, vn_subject_hak_jum
+                FROM (
+                        SELECT 과목.과목이름 AS subject
+                                 ,과목.학점    AS hak_jum
+                              ,rownum      AS sub_rnum
+                        FROM 수강내역, 과목
+                        WHERE 수강내역.과목번호 = 과목.과목번호(+)
+                        AND 수강내역.학번 = vn_hak_no
+                     ) A
+                WHERE A.sub_rnum = i;
+                DBMS_OUTPUT.PUT_LINE (' 과목:' || vn_subject || ' 학점:'||vn_subject_hak_jum );
+            END LOOP;
+                    /* 이수과목 정보가 없을 경우 */    
+        ELSE
+            DBMS_OUTPUT.PUT_LINE(' 자료가 없습니다.');	
+        END IF;
+        DBMS_OUTPUT.PUT_LINE ('[산출자료]');
+        DBMS_OUTPUT.PUT_LINE (' 최소학기:' || vn_after_hak_gi || ' 필요학점:'||vn_after_hak_jum );
+        DBMS_OUTPUT.PUT_LINE ('----------------------------------------------------------') ;
+
+
+      vn_cnt := vn_cnt + 1; -- vn_cnt 값을 1씩 증가
+   END LOOP;    
+END;
+
+----과목프로시--------------------------------------------------------------------------------------------------------------------------------
+create or replace PROCEDURE subject_proc(
+                    p_hakno NUMBER
+                    )
+IS
+   vn_sub_cnt          NUMBER;
+   vn_subject          과목.과목이름%TYPE;   /*과목명*/
+   vn_subject_hak_jum  NUMBER ;            /*학점*/
+BEGIN
+
+    SELECT COUNT(*) AS sub_cnt
+	INTO vn_sub_cnt
+    FROM 수강내역, 과목
+    WHERE 수강내역.과목번호 = 과목.과목번호(+)
+    AND 수강내역.학번 = p_hakno;
+        DBMS_OUTPUT.PUT_LINE ('[수강 내용]'); /* 이수과목 정보가 있을 경우 */
+        IF vn_sub_cnt != 0 THEN
+            FOR i in 1..vn_sub_cnt /* 이수과목 정보건수 만큼 */
+            LOOP
+                SELECT A.subject
+                    ,  A.hak_jum
+                INTO vn_subject, vn_subject_hak_jum
+                FROM (
+                        SELECT 과목.과목이름 AS subject
+                                                                            ,과목.학점    AS hak_jum
+                              ,rownum      AS sub_rnum
+                        FROM 수강내역, 과목
+                        WHERE 수강내역.과목번호 = 과목.과목번호(+)
+                        AND 수강내역.학번 = p_hakno
+                     ) A
+                WHERE A.sub_rnum = i;
+                DBMS_OUTPUT.PUT_LINE (' 과목:' || vn_subject || ' 학점:'||vn_subject_hak_jum );
+            END LOOP;
+                    /* 이수과목 정보가 없을 경우 */    
+        ELSE
+            DBMS_OUTPUT.PUT_LINE(' 자료가 없습니다.');	
+        END IF;
+END;
+
+CREATE OR REPLACE PROCEDURE haksa_proc(
+                    p_hakno NUMBER ,
+                    p_out_name out VARCHAR2,
+                    p_out_b_hakgi out NUMBER,
+                    p_out_b_hakjum out NUMBER,
+                    p_out_n_hakgi out NUMBER,
+                    p_out_n_hakjum out NUMBER
+                    )
+IS
+   vn_cnt                NUMBER;
+   cn_max_num   CONSTANT NUMBER := 9;        /*1년 수강하가능 학점*/
+   cn_grade_num CONSTANT NUMBER := 36;       /*졸업가능 학점*/
+BEGIN
+   SELECT COUNT(*) AS CNT
+   INTO vn_cnt
+   FROM 학생
+   WHERE 학번 = p_hakno;
+   
+   IF vn_cnt > 0 THEN
+        
+        SELECT 학생.이름            AS name
+              ,NVL(MAX(학생.학기),0)       AS max_hak_gi
+              ,NVL(SUM(과목.학점),0)       AS sum_hak_jum
+        INTO p_out_name, p_out_b_hakgi, p_out_b_hakjum   
+        FROM 학생, 수강내역, 과목
+        WHERE 학생.학번 = 수강내역.학번 (+)
+        AND 학생.학번 = p_hakno
+        AND   수강내역.과목번호 = 과목.과목번호(+)
+        GROUP BY 학생.학번
+               , 학생.이름;
+        
+        p_out_n_hakjum := cn_grade_num - p_out_b_hakjum;
+        p_out_n_hakgi  := CEIL(p_out_n_hakjum / cn_max_num);
+   ELSE
+     RETURN;
+   END IF;
+END;
+----프로시져사--------------------------------------------------------------------------------------------------------------------------------
+DECLARE
+   --반복건수-------------------------
+   vn_sum_cnt            NUMBER;             /*전체 학생 수*/
+   --기존자료---------------------------
+   vn_hak_no             NUMBER := 0;        /*학점*/
+   vn_name               VARCHAR2 (20);      /*이름*/
+   vn_before_hak_gi      NUMBER := 0;        /*이수학기*/
+   vn_before_hak_jum     NUMBER := 0;        /*이수학점*/
+   --필요자료---------------------------
+   vn_after_hak_gi       NUMBER := 0;        /*필요학점*/
+   vn_after_hak_jum      NUMBER := 0;        /*필수학기*/
+BEGIN
+   SELECT COUNT(DISTINCT 학번) AS CNT
+   INTO vn_sum_cnt
+   FROM 학생;
+   
+   FOR i IN 1..vn_sum_cnt
+   LOOP
+        SELECT hak_no
+        INTO vn_hak_no
+        FROM (
+                SELECT A.*
+                      , rownum  as rnum
+                FROM (
+                        SELECT DISTINCT 학생.학번 AS hak_no
+                        FROM 학생
+                     ) A
+            )B
+        WHERE B.rnum = i;
+        haksa_proc(vn_hak_no, vn_name, vn_before_hak_gi, vn_before_hak_jum, vn_after_hak_gi, vn_after_hak_jum);
+        DBMS_OUTPUT.PUT_LINE ('----------------------------------------------------------') ;
+        DBMS_OUTPUT.PUT_LINE ('[기존 자료]학번:'|| vn_hak_no || ' 이름:' || vn_name || ' 수강 학기:' || vn_before_hak_gi || ' 취득 학점:'||vn_before_hak_jum );
+        subject_proc(vn_hak_no);
+        DBMS_OUTPUT.PUT_LINE ('[산출 자료]학번:'|| vn_hak_no || ' 이름:' || vn_name || ' 최소 학기:' || vn_after_hak_gi || ' 필요 학점:'||vn_after_hak_jum );
+        DBMS_OUTPUT.PUT_LINE ('----------------------------------------------------------') ;
+   END LOOP;    
+END;
+```
+#### 2. 레코드
+ - PL/SQL 에서 제공하는 데이터 타입 중 하나로, 문자형, 숫자형 같은 기본 타입과 달리 복합형 구조이다
+ - 일반 변수는 한 번에 하나의 값만 가질 수 있지만 레코드는 여러 개의 값을 가질 수 있다.
+ - 테이블과 흡사하며, 여러 개의 컬럼을 각기 다른 테이터 타입으로 선언해서 사용할 수 있다 (하지만 로우는 1개) 1개이상을 쓰려면 컬렉션사용.
+```sql
+--11------------------------ 레코드------------------------------------------
+
+DECLARE
+  -- 부서레코드 타입선언
+   TYPE depart_rect IS RECORD (
+         department_id     NUMBER(6),
+         department_name   VARCHAR2(80),
+         parent_id         NUMBER(6),
+         manager_id        NUMBER(6)   
+   );
+   
+  -- 위에서 선언된 타입으로 레코드 변수 선언  
+   vr_dep depart_rect;
+
+BEGIN
+ ...
+END;
+
+
+DECLARE
+  -- 부서레코드 타입선언
+   TYPE depart_rect IS RECORD (
+         department_id     departments.department_id%TYPE,
+         department_name  departments.department_name%TYPE,
+         parent_id          departments.parent_id%TYPE,
+         manager_id        departments.manager_id%TYPE
+   );
+   
+  -- 위에서 선언된 타입으로 레코드 변수 선언  
+   vr_dep depart_rect;
+BEGIN
+-- …
+END;
+
+
+--12
+------------------------------------------------------------------------------------------
+DECLARE
+  -- 부서레코드 타입선언
+   TYPE  depart_rect IS RECORD (
+         department_id     departments.department_id%TYPE,
+         department_name  departments.department_name%TYPE,
+         parent_id          departments.parent_id%TYPE,
+         manager_id        departments.manager_id%TYPE
+   );
+   
+  -- 위에서 선언된 타입으로 레코드 변수 선언  
+   vr_dep depart_rect;
+  -- 두 번째 변수 선언
+   vr_dep2 depart_rect;
+BEGIN
+
+   vr_dep.department_id := 999;
+   vr_dep.department_name := '테스트부서';
+   vr_dep.parent_id := 100;
+   vr_dep.manager_id := NULL;
+   
+   -- 두 번째 변수에 첫 번째 레코드변수 대입
+   vr_dep2 := vr_dep;
+   
+   DBMS_OUTPUT.PUT_LINE( 'vr_dep2.department_id :'   || vr_dep2.department_id);
+   DBMS_OUTPUT.PUT_LINE( 'vr_dep2.department_name :' ||  vr_dep2.department_name);
+   DBMS_OUTPUT.PUT_LINE( 'vr_dep2.parent_id :'       ||  vr_dep2.parent_id);
+   DBMS_OUTPUT.PUT_LINE( 'vr_dep2.manager_id :'      ||  vr_dep2.manager_id);
+END;
+
+--13
+------------------------------------------------------------------------------------------
+DECLARE
+  -- 부서레코드 타입선언
+   TYPE depart_rect IS RECORD (
+         department_id     departments.department_id%TYPE,
+         department_name  departments.department_name%TYPE,
+         parent_id          departments.parent_id%TYPE,
+         manager_id        departments.manager_id%TYPE
+   );
+  -- 위에서 선언된 타입으로 레코드 변수 선언  
+   vr_dep depart_rect;
+  -- 두 번째 변수 선언
+   vr_dep2 depart_rect;
+BEGIN
+   vr_dep.department_id := 999;
+   vr_dep.department_name := '테스트부서';
+   vr_dep.parent_id := 100;
+   vr_dep.manager_id := NULL;
+   -- 두 번째 변수의 department_name에만 할당
+   vr_dep2.department_name := vr_dep.department_name;
+   
+   DBMS_OUTPUT.PUT_LINE( 'vr_dep2.department_id :' || vr_dep2.department_id);
+   DBMS_OUTPUT.PUT_LINE( 'vr_dep2.department_name :' ||  vr_dep2.department_name);
+   DBMS_OUTPUT.PUT_LINE( 'vr_dep2.parent_id :' ||  vr_dep2.parent_id);
+   DBMS_OUTPUT.PUT_LINE( 'vr_dep2.manager_id :' ||  vr_dep2.manager_id);
+END;
+
+--14
+------------------------------------------------------------------------------------------
+CREATE TABLE ch11_dep AS
+SELECT department_id, department_name, parent_id, manager_id
+  FROM DEPARTMENTS ;
+  
+TRUNCATE TABLE   ch11_dep;
+  
+ DECLARE
+  -- 부서레코드 타입선언
+   TYPE depart_rect IS RECORD (
+         department_id     departments.department_id%TYPE,
+         department_name  departments.department_name%TYPE,
+         parent_id          departments.parent_id%TYPE,
+         manager_id        departments.manager_id%TYPE
+   );
+   
+  -- 위에서 선언된 타입으로 레코드 변수 선언  
+   vr_dep depart_rect;
+
+BEGIN
+
+   vr_dep.department_id := 999;
+   vr_dep.department_name := '테스트부서';
+   vr_dep.parent_id := 100;
+   vr_dep.manager_id := NULL;
+   
+   -- 레코드 필드를 명시해서 INSERT
+   INSERT INTO ch11_dep VALUES ( vr_dep.department_id, vr_dep.department_name, vr_dep.parent_id, vr_dep.manager_id);
+   
+   -- 레코드 필드 순서와 개수, 타입이 같다면 레코드변수명으로만 INSERT 가능
+   INSERT INTO ch11_dep VALUES vr_dep;
+   COMMIT;
+END;
+--15
+------------------------------------------------------------------------------------------
+CREATE TABLE ch11_dep2 AS
+SELECT *
+  FROM DEPARTMENTS;
+
+TRUNCATE TABLE   ch11_dep2;
+
+
+
+-- 테이블형 레코드
+DECLARE
+  -- 테이블형 레코드 변수 선언
+   vr_dep departments%ROWTYPE;
+
+BEGIN
+   -- 부서 테이블의 모든 정보를 레코드 변수에 넣는다.
+   SELECT *
+     INTO vr_dep
+     FROM departments
+    WHERE department_id = 20;
+   -- 레코드 변수를 이용해 ch11_dep2 테이블에 데이터를 넣는다.
+   INSERT INTO ch11_dep2 VALUES vr_dep;
+   COMMIT;
+END;
+```
+- 커서형 레코드
+```sql 
+--16
+------------------------------------------------------------------------------------------
+-- 커서형 레코드
+DECLARE
+  -- 커서 선언
+   CURSOR c1 IS
+       SELECT department_id, department_name, parent_id, manager_id
+         FROM departments;       
+   -- 커서형 레코드변수 선언  
+   vr_dep c1%ROWTYPE;
+BEGIN
+   -- 데이터 삭제
+   DELETE ch11_dep;
+   -- 커서 오픈
+   OPEN c1;
+   -- 루프를 돌며 vr_dep 레코드 변수에 값을 넣고, 다시 ch11_dep에 INSERT
+   LOOP
+     FETCH c1
+     INTO vr_dep;
+     EXIT WHEN c1%NOTFOUND;
+     -- 레코드 변수를 이용해 ch11_dep2 테이블에 데이터를 넣는다.
+     INSERT INTO ch11_dep VALUES vr_dep;
+   END LOOP;
+   COMMIT;
+END;
+
+--17
+----------------------------------------------------------------------------------------------------------------
+DECLARE
+   -- 레코드 변수 선언
+   vr_dep ch11_dep%ROWTYPE;
+
+BEGIN
+ 
+   vr_dep.department_id := 20;
+   vr_dep.department_name := '테스트';
+   vr_dep.parent_id := 10;
+   vr_dep.manager_id := 200;
+     
+   -- ROW를 사용하면 해당 로우 전체가 갱신됨
+     UPDATE ch11_dep
+          SET ROW = vr_dep
+      WHERE department_id = vr_dep.department_id;
+   
+   COMMIT;
+END;
+
+```
+- 중첩 레코드
+```sql
+-- 중첩 레코드
+--18
+----------------------------------------------------------------------------------------------------------------
+DECLARE
+  -- 부서번호, 부서명을 필드로 가진 dep_rec 레코드 타입 선언
+  TYPE  dep_rec IS RECORD (
+        dep_id      departments.department_id%TYPE,
+        dep_name departments.department_name%TYPE );
+        
+  --사번, 사원명 그리고 dep_rec(부서번호, 부서명) 타입의 레코드 선언
+  TYPE emp_rec IS RECORD (
+        emp_id      employees.employee_id%TYPE,
+        emp_name employees.emp_name%TYPE,
+        dep          dep_rec                          );
+        
+   --  emp_rec 타입의 레코드 변수 선언
+   vr_emp_rec emp_rec;
+BEGIN
+   -- 100번 사원의 사번, 사원명, 부서번호, 부서명을 가져온다.
+   SELECT a.employee_id, a.emp_name, a.department_id, b.department_name
+     INTO vr_emp_rec.emp_id, vr_emp_rec.emp_name, vr_emp_rec.dep.dep_id, vr_emp_rec.dep.dep_name
+     FROM employees a,
+             departments b
+    WHERE a.employee_id = 100
+       AND a.department_id = b.department_id;
+       
+    -- 레코드 변수 값 출력    
+    DBMS_OUTPUT.PUT_LINE('emp_id : ' ||  vr_emp_rec.emp_id);
+    DBMS_OUTPUT.PUT_LINE('emp_name : ' ||  vr_emp_rec.emp_name);
+    DBMS_OUTPUT.PUT_LINE('dep_id : ' ||  vr_emp_rec.dep.dep_id);
+    DBMS_OUTPUT.PUT_LINE('dep_name : ' ||  vr_emp_rec.dep.dep_name);
+END;
+--------------------------------------------------------------------------------
+```
+#### 3. 컬렉션 
+1. 연관배열 
+
+- Associative Array 키와 값으로 구성된 컬렉션 (키를 index라고 부르기도 하기때문에 index-by 테이블 이라고도 한다. )
+- 문자형이나 PLS_INTEGER 값을 사용가능
+- TYPE 연관_배열명 IS TABLE OF 연관_배열_값타입 INDEX BY 인덱스타입;
+```sql
+-----------------------------------컬렉션----------------------------------------- 
+--19
+
+DECLARE
+   -- 숫자-문자 쌍의 연관배열 선언
+   TYPE av_type IS TABLE OF VARCHAR2(40) INDEX BY PLS_INTEGER;
+        
+   -- 연관배열 변수 선언
+   vav_test av_type;
+BEGIN
+  -- 연관배열에 값 할당
+  vav_test(10) := '10에 대한 값';
+  vav_test(20) := '20에 대한 값';
+  
+  --연관배열 값 출력
+  DBMS_OUTPUT.PUT_LINE(vav_test(10));
+  DBMS_OUTPUT.PUT_LINE(vav_test(20));
+
+END;
+--20
+DECLARE
+   -- 숫자-문자 쌍의 연관배열 선언
+   TYPE av_type IS TABLE OF VARCHAR2(40) INDEX BY VARCHAR2(30);
+        
+   -- 연관배열 변수 선언
+   vav_test av_type;
+BEGIN
+  -- 연관배열에 값 할당
+  vav_test('A') := '10에 대한 값';
+  vav_test('B') := '20에 대한 값';
+  
+  --연관배열 값 출력
+  DBMS_OUTPUT.PUT_LINE(vav_test('A'));
+  DBMS_OUTPUT.PUT_LINE(vav_test('B'));
+------------------------------------------------------------------------------------------
+--문제
+--키값을 member 이름  aaa('김은대') := id
+-- value 값을 아이디로 하는 연관배열 을 만들어 member 테이블에 있는 요소를 담고출력하시오
+
+
+DECLARE
+   -- 숫자-문자 쌍의 연관배열 선언
+   TYPE av_type IS TABLE OF VARCHAR2(40) INDEX BY VARCHAR2(30) ;
+   -- 연관배열 변수 선언
+   v_mem av_type;
+BEGIN
+  FOR rec IN (SELECT * FROM MEMBER)
+  LOOP
+  v_mem(rec.mem_name) := rec.mem_id ;
+  END LOOP ;
+  
+  FOR rec IN (SELECT * FROM MEMBER)
+  LOOP
+    DBMS_OUTPUT.PUT_LINE('key : ' || rec.mem_name || 'value : ' || v_mem(rec.mem_name));
+  END LOOP ;
+END ;
+
+```
+2. VARRAY
+
+- Variavle - Size Array 는 가변 길이 배열로서 연관 배열과는 달리 크 크기에 제한이 있다.
+- 즉 선언 할때 크기(요소 개수)를 지정하면 이보다 큰 수로 요소를 만들 수 없다.
+- 자동으로 순번이 매겨지며 최솟값은 1이다.
+```sql
+--21
+DECLARE
+   -- 5개의 문자형 값으로 이루어진 VARRAY 선언
+   TYPE va_type IS VARRAY(5) OF VARCHAR2(20);
+   -- VARRY 변수 선언
+   vva_test va_type;
+   vn_cnt NUMBER := 0;
+BEGIN
+  -- 생성자를 사용해 값 할당 (총 5개지만 최초 3개만 값 할당)
+  vva_test := va_type('FIRST', 'SECOND', 'THIRD', '', '');
+  
+  LOOP
+     vn_cnt := vn_cnt + 1;     
+     -- 크기가 5이므로 5회 루프를 돌면서 각 요소 값 출력
+     IF vn_cnt > 5 THEN
+        EXIT;
+     END IF;
+     -- VARRY 요소 값 출력
+     DBMS_OUTPUT.PUT_LINE(vva_test(vn_cnt));
+  END LOOP;
+  -- 값 변경
+  vva_test(2) := 'TEST';
+  vva_test(4) := 'FOURTH';
+  -- 다시 루프를 돌려 값 출력
+  vn_cnt := 0;
+  LOOP
+     vn_cnt := vn_cnt + 1;     
+     -- 크기가 5이므로 5회 루프를 돌면서 각 요소 값 출력
+     IF vn_cnt > 5 THEN
+        EXIT;
+     END IF;
+     -- VARRY 요소 값 출력
+     DBMS_OUTPUT.PUT_LINE(vva_test(vn_cnt));
+  END LOOP;
+END;
+```
+- 중첩 테이블 Nasted Table
+```sql
+--22
+/**
+ 중첩 테이블 Nested Table 컬렉션 타입의 한 종류로 중첩 테이블은 크기에 제한이 없다(숫자형 인덱스만 사용가능)
+ TYPE 중첩_테이블명 IS TABLE OF 값타입;
+*/
+
+DECLARE
+  -- 중첩 테이블 선언
+  TYPE nt_typ IS TABLE OF VARCHAR2(10);
+  
+  -- 변수 선언
+  vnt_test nt_typ;
+BEGIN
+
+  -- 생성자를 사용해 값 할당
+  vnt_test := nt_typ('FIRST', 'SECOND', 'THIRD', '');
+  
+  vnt_test(4) := 'FOURTH';
+  
+  -- 값 출력
+  DBMS_OUTPUT.PUT_LINE (vnt_test(1));
+  DBMS_OUTPUT.PUT_LINE (vnt_test(2));
+  DBMS_OUTPUT.PUT_LINE (vnt_test(3));
+  DBMS_OUTPUT.PUT_LINE (vnt_test(4));
+  
+END;
+```
+- 컬렉션 메소드 
+```sql
+--23
+/*
+ 컬렉션 메소드란 컬렉션의 요소에 접근해 값을 가져오고 수정하고 삭제하는 기능을 하는 일련의 빌트인(내장형) 프로시저와 함수를 말한다.
+*/
+-- DELETE 메소드 프로시저 타입에 : 컬렉션의 요소를 삭제
+DECLARE
+   -- 숫자-문자 쌍의 연관배열 선언
+   TYPE av_type IS TABLE OF VARCHAR2(40) INDEX BY VARCHAR2(10);
+        
+   -- 연관배열 변수 선언
+   vav_test av_type;
+   
+   vn_cnt number := 0;
+BEGIN
+  -- 연관배열에 값 할당
+  vav_test('A') := '10에 대한 값';
+  vav_test('B') := '20에 대한 값';
+  vav_test('C') := '20에 대한 값';
+  
+  vn_cnt := vav_test.COUNT;
+  DBMS_OUTPUT.PUT_LINE('삭제 전 요소 개수: ' || vn_cnt);  
+  
+  vav_test.DELETE('A', 'B');
+  
+  vn_cnt := vav_test.COUNT;
+  DBMS_OUTPUT.PUT_LINE('삭제 후 요소 개수: ' || vn_cnt);
+END;
+```
+- TRIM 메소드
+```sql
+--24
+-- TRIM 메소드 메소드 프로시저 타입에 : VARRAY나 중첩 테이블의 끝에서 요소를 삭제
+DECLARE
+  -- 중첩 테이블 선언
+  TYPE nt_typ IS TABLE OF VARCHAR2(10);
+  
+  -- 변수 선언
+  vnt_test nt_typ;
+BEGIN
+  -- 생성자를 사용해 값 할당
+  vnt_test := nt_typ('FIRST', 'SECOND', 'THIRD', 'FOURTH', 'FIFTH');
+
+  -- 맨 마지막부터 2개 요소 삭제
+  vnt_test.TRIM(2);
+  
+  DBMS_OUTPUT.PUT_LINE(vnt_test(1));
+  DBMS_OUTPUT.PUT_LINE(vnt_test(2));
+  DBMS_OUTPUT.PUT_LINE(vnt_test(3));
+  DBMS_OUTPUT.PUT_LINE(vnt_test(4));
+  
+  EXCEPTION WHEN OTHERS THEN
+      DBMS_OUTPUT.PUT_LINE(SQLERRM);
+      DBMS_OUTPUT.PUT_LINE( DBMS_UTILITY.FORMAT_ERROR_BACKTRACE);
+END;
+
+```
+- EXTEND 메소드
+```sql
+--25
+-- EXTEND 메소드 프로시저 타입에 : VARRAY나 중첩 테이블의 끝에서 요소를 추가
+DECLARE
+  -- 중첩 테이블 선언
+  TYPE nt_typ IS TABLE OF VARCHAR2(10);
+  
+  -- 변수 선언
+  vnt_test nt_typ;
+BEGIN
+  -- 생성자를 사용해 값 할당
+  vnt_test := nt_typ('FIRST', 'SECOND', 'THIRD');
+
+  -- 맨 끝에 NULL 요소 추가한 뒤 값 할당 후 출력
+  vnt_test.EXTEND;
+  vnt_test(4) := 'fourth';
+  DBMS_OUTPUT.PUT_LINE(vnt_test(4));
+  
+  -- 맨 끝에 첫 번째 요소를 2개 복사해 추가 후 출력
+  vnt_test.EXTEND(2, 1);
+  DBMS_OUTPUT.PUT_LINE('첫번째 : ' || vnt_test(1));
+  -- 첫 번째 요소를 복사해 2개 추가했으므로 추가된 요소는 5, 6
+  DBMS_OUTPUT.PUT_LINE('추가한 요소1 : ' || vnt_test(5));
+  DBMS_OUTPUT.PUT_LINE('추가한 요소2 : ' || vnt_test(6));
+
+END;
+
+```
+- First Last 메소드
+```sql
+--26
+-- FIRST와 LAST 메소드 함수 타입에 : 컬렉션의 첫번째 인덱스 반환, 마지막인덱스 반환
+DECLARE
+  -- 중첩 테이블 선언
+  TYPE nt_typ IS TABLE OF VARCHAR2(10);
+  
+  -- 변수 선언
+  vnt_test nt_typ;
+BEGIN
+  -- 생성자를 사용해 값 할당
+  vnt_test := nt_typ('FIRST', 'SECOND', 'THIRD', 'FOURTH', 'FIFTH');
+
+  -- FIRST와 LAST 메소드를 FOR문에서 사용해 컬렉션 값을 출력
+  FOR i IN vnt_test.FIRST..vnt_test.LAST
+  LOOP
+  
+     DBMS_OUTPUT.PUT_LINE(i || '번째 요소 값: ' || vnt_test(i));
+  END LOOP;
+
+END;
+```
+- COUNT, LIMIT 메소드
+```sql
+--27
+-- COUNT와 LIMIT 메소드 함수 타입에 : 컬렉션의 요소의 총 수를 반환, 컬렉션이 가질 수 있는 요소의 최대 수를 반환
+
+DECLARE
+  
+  TYPE nt_typ IS TABLE OF VARCHAR2(10);      -- 중첩테이블 선언
+  TYPE va_type IS VARRAY(5) OF VARCHAR2(10); -- VARRAY 선언
+ 
+  -- 변수 선언
+  vnt_test nt_typ;
+  vva_test va_type;
+BEGIN
+  -- 생성자를 사용해 값 할당
+  vnt_test := nt_typ('FIRST', 'SECOND', 'THIRD', 'FOURTH'); -- 중첩테이블
+  vva_test := va_type('첫번째', '두번째', '세번째', '네번째'); -- VARRAY
+  
+  DBMS_OUTPUT.PUT_LINE('VARRAY COUNT: ' || vva_test.COUNT);
+  DBMS_OUTPUT.PUT_LINE('중첩테이블 COUNT: ' || vnt_test.COUNT);
+
+  DBMS_OUTPUT.PUT_LINE('VARRAY LIMIT: ' || vva_test.LIMIT);
+  DBMS_OUTPUT.PUT_LINE('중첩테이블 LIMIT: ' || vnt_test.LIMIT);  
+
+END;
+```
+- PRIOR, NEXT
+```sql
+--28
+-- PRIOR와 NEXT
+DECLARE
+  TYPE va_type IS VARRAY(5) OF VARCHAR2(10); -- VARRAY 선언
+  -- 변수 선언
+  vva_test va_type;
+BEGIN
+  -- 생성자를 사용해 값 할당
+  vva_test := va_type('첫번째', '두번째', '세번째', '네번째'); -- VARRAY
+  
+  DBMS_OUTPUT.PUT_LINE('FIRST의 PRIOR : ' || vva_test.PRIOR(vva_test.FIRST));
+  DBMS_OUTPUT.PUT_LINE('LAST의 NEXT : ' || vva_test.NEXT(vva_test.LAST));
+
+  DBMS_OUTPUT.PUT_LINE('인덱스3의 PRIOR :' || vva_test.PRIOR(3));
+  DBMS_OUTPUT.PUT_LINE('인덱스3의 NEXT :' || vva_test.NEXT(3));
+
+END;
+
+
+---------------------------------------------------------------------------------------
+--문제
+--member 테이블의 이름을 가져와서 중첩테이블 형태에 변수에 담고
+--중첩테이블의 첫 번째 인덱스의 값 ~ 마지막 인덱스의 값을 출력하시오
+
+DECLARE
+ TYPE mem_typ IS TABLE OF VARCHAR2(200);
+   -- 연관배열 변수 선언
+   mem mem_typ;
+BEGIN
+mem := mem_typ();
+FOR rec IN(select mem_name from member)
+LOOP
+mem.EXTEND;
+mem(mem.last):=rec.mem_name;
+END LOOP ;
+for i in mem.first..mem.last
+loop
+    DBMS_OUTPUT.PUT_LINE('mem : ' || mem(i));
+    end loop ;
+    end ;
+```
+- 사용자 정의 데이터 타입 
+```sql
+---------------------------------------------------------------------------------------
+--29
+-- 사용자 정의 데이터 타입 (유형 트리에 생성됨)
+-- 5개의 문자형 값으로 이루어진 VARRAY 사용자정의타입 선언
+CREATE OR REPLACE TYPE ch11_va_type IS VARRAY(5) OF VARCHAR2(20);
+
+--30
+-- 문자형 값의 중첩테이블 사용자정의타입 선언
+CREATE OR REPLACE TYPE ch11_nt_type IS TABLE OF VARCHAR2(20);
+
+
+--31
+-- 사용자정의타입인 va_type와 nt_type 사용
+DECLARE
+   vva_test ch11_va_type;  -- VARRAY인 va_type 변수선언   
+   vnt_test ch11_nt_type;  -- 중첩테이블인  nt_type 변수선언   
+
+BEGIN
+    -- 생성자를 사용해 값 할당 (총 5개지만 최초 3개만 값 할당)
+    vva_test := ch11_va_type('FIRST', 'SECOND', 'THIRD', '', '');
+    vnt_test := ch11_nt_type('FIRST', 'SECOND', 'THIRD', '');
+    
+    DBMS_OUTPUT.PUT_LINE('VARRAY의 1번째 요소값: ' || vva_test(1));
+    DBMS_OUTPUT.PUT_LINE('중첩테이블의 1번째 요소값: ' || vnt_test(1));
+
+END;
+
+```
+- 컬렉션 타입별 차이점과 활용
+```sql
+-- 다차원 컬렉션
+--32
+DECLARE
+    -- 첫 번째 VARRAY 타입선언 (구구단중 각단 X5값을 가진  요소를 갖는 VARRAY )
+    TYPE va_type1 IS VARRAY(5) OF NUMBER;
+    
+    -- 위에서 선언한 va_type1을 요소타입으로 하는 VARRAY 타입 선언 (구구단중 1~3단까지 요소를 갖는 VARRAY)
+    TYPE va_type11 IS VARRAY(3) OF va_type1;
+    -- 두번째 va_type11 타입의 변수 선언
+    va_test va_type11;
+BEGIN
+    -- 생성자를 이용해 값 초기화,
+    va_test := va_type11( va_type1(1, 2, 3, 4, 5),
+                          va_type1(2, 4, 6, 8, 10),
+                          va_type1(3, 6, 9, 12, 15)
+                       );
+                        
+   -- 구구단 출력                               
+   DBMS_OUTPUT.PUT_LINE('2곱하기 3은 ' || va_test(2)(3));             
+   DBMS_OUTPUT.PUT_LINE('3곱하기 5는 ' || va_test(3)(5));               
+
+END;
+
+
+--33
+DECLARE
+    -- 요소타입을 employees%ROWTYPE 로 선언, 즉 테이블형 레코드를 요소 타입으로 한 중첩테이블
+    TYPE nt_type IS TABLE OF employees%ROWTYPE;
+
+   -- 중첩테이블 변수선언
+   vnt_test nt_type;
+BEGIN
+  -- 빈 생성자로 초기화
+  vnt_test := nt_type();
+  
+  -- 중첩테이블에 요소 1개 추가
+  vnt_test.EXTEND;
+  
+  -- 사원테이블에서 100번 사원의 정보를 가져온다.
+  SELECT *
+     INTO vnt_test(1) -- 위에서 요소1개를 추가했으므로 인덱스는 1
+    FROM employees
+   WHERE employee_id = 100;
+   
+  -- 100반 사원의 사번과 성명 출력
+  DBMS_OUTPUT.PUT_LINE(vnt_test(1).employee_id);
+  DBMS_OUTPUT.PUT_LINE(vnt_test(1).emp_name);
+
+END;
+
+
+--34
+DECLARE
+    -- 요소타입을 employees%ROWTYPE 로 선언, 즉 테이블형 레코드를 요소 타입으로 한 중첩테이블
+    TYPE nt_type IS TABLE OF employees%ROWTYPE;
+
+   -- 중첩테이블 변수선언
+   vnt_test nt_type;
+BEGIN
+  -- 빈 생성자로 초기화
+  vnt_test := nt_type();
+  
+  -- 사원테이블 전체를 중첩테이블에 담는다.
+  FOR rec IN ( SELECT * FROM employees)
+  LOOP
+     -- 요소 1개 추가
+     vnt_test.EXTEND;
+     
+     -- LAST 메소드를 사용하면 항상 위에서 추가한 요소의 인덱스를 가져온다.
+     vnt_test ( vnt_test.LAST) := rec;
+     
+  END LOOP;
+   
+  -- 출력
+  FOR i IN vnt_test.FIRST..vnt_test.LAST
+  LOOP
+       DBMS_OUTPUT.PUT_LINE(vnt_test(i).employee_id || ' - ' ||   vnt_test(i).emp_name);
+  END LOOP;
+
+END;
+```
+
