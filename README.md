@@ -727,6 +727,209 @@ ORDER BY CUST_YEAR_OF_BIRTH DESC;  --asc / desc 구분
 - IN 조건식 : 조건철에 명시한 값이 포함된 건을 반환하는 ANY와 비슷
 - LIKE 조건식 : 문자열의 패턴을 검색할 때 사용하는 조건식.
 
+### 10. MERGE문
+
+- 없으면 insert
+- 있으면 update
+
+- 만약 merge 문이 안된다면
+1. select 있는지 없는지 체크
+if
+2. 없으면 insert
+else
+3. 있으면 update
+
+
+ #### MERGE
+ - 특정 조건에 따라 어떤 때는 INSERT
+ - 다른경우에는 UPDATE 문을 수행할 때 사용가능
+
+- INTO : DATA가 UPDATE되거나 INSERT 될 테이블 또는 뷰를 지정.
+- USING : 비교할 SOURCE 테이블 또는 뷰나 서브쿼리를 지정, INTO절의 테이블과 동일하거나 다를 수 있다.
+- ON : UPDATE나 INSERT를 하게 될 조건으로, 해당 조건을 만족하는 DATA가 있으면 WHEN MATCHED 절을 실행하게 되고, 없으면 WHEN NOT MATCHED 이하를 실행하게 된다.
+- WHEN MATCHED : ON 조건절이 TRUE인 ROW에 수행 할 내용 (UPDATE, DELETE포함 될 수 있음)
+- WHEN NOT MATCHED : ON 조건절에 맞는 ROW가 없을 때 수행할 내용 (INSERT)
+```sql
+--------------------------------------------------------------------------------
+*/
+    MERGE INTO UPDATED_TABLE A
+    USING   ( select b.a, b.c
+              from DATA_TABLE
+              where
+            )  B
+    ON (A.KEY = B.KEY
+            AND A.ID = '001')
+    WHEN MATCHED THEN  /* 매치되면? */
+        UPDATE
+        SET A.DATA1 = B.DATA1
+    WHEN NOT MATCHED THEN  /* 매치안되면? */
+        INSERT (a.KEY, a.DATA1)
+        VALUES (B.KEY, B.DATA1)
+
+
+      
+     MERGE INTO 학생 a
+     USING DUAL   -- 비교 테이블이 다르지 않을때
+     ON (a.이름 = '본인이름')
+     WHEN MATCHED THEN      --- ON절의 조건이 맞다면
+          UPDATE SET a.주소 = '서울'
+     WHEN NOT MATCHED THEN  --- ON절의 조건이 아니라면
+          INSERT (a.학번 , a.이름, a.주소)
+          VALUES ((select nvl(max(학번),0)+1 from 학생),'본인이름',  '주소');
+
+
+
+
+SELECT *
+FROM 학생 ;
+
+merge into 학생 a
+using dual              -- 비교 테이블이 다르지 않을 때
+on(a.이름 = '사승원')
+when MATCHED THEN       -- ON절의 조건이 맞다면
+UPDATE SET a.주소 = '대전'
+WHEN NOT MATCHED THEN   -- ON절의 조건이 아니라면
+INSERT (a.학번, a.이름, a.주소)
+VALUES ((select nvl(max(학번),0)+1 from 학생), '사승원', '대전')
+
+
+
+
+
+
+CREATE TABLE ex3_3 (
+       employee_id NUMBER,
+       bonus_amt   NUMBER DEFAULT 0
+       );
+ /*
+ (1) 사원테이블에서 관리자 사번 MANAGER_ID가 146 번인 사원을 찾아서
+
+ (2) EX3_3 테이블에 있는 사원의 사번과 일치하면 보너스
+     금액에 자신의 급여 1% 보너스로 갱신
+
+ (3) 사번과 일치하는게 없으면 (1)의 결과를
+     신규로 입력(이때  보너스 금액은 급여의 0.1%로 한다.
+     이때 급여가 8000 미만인 사원만 처리.
+  */
+
+-- SALES 테이블에서 2000년 10 월부터
+--                    2000년 10 월 까지 매출을 낸
+-- 사원번호를 입력 GROUP BY 절을 추가해 사원의 중복을 없앰
+INSERT INTO ex3_3 (employee_id)
+SELECT e.employee_id
+  FROM employees e, sales s
+ WHERE e.employee_id = s.employee_id
+   AND s.SALES_MONTH BETWEEN '200010' AND '200012'
+ GROUP BY e.employee_id;
+ 
+SELECT *
+  FROM ex3_3
+ ORDER BY employee_id;  
+
+
+------------------------------------------------------------------------------------------
+
+-- 메니저 사번이 146
+SELECT employee_id, salary, manager_id
+FROM employees
+WHERE manager_id = 146;
+-- 이 데이터 중 EX3_3 테이블에 있는 건 1퍼센트 인상
+
+-- 업데이트 대상건
+ SELECT employee_id, manager_id, salary, salary * 0.01
+   FROM employees
+  WHERE employee_id IN (  SELECT employee_id
+                            FROM ex3_3 )
+  AND manager_id = 146;
+  
+  
+-- 인서트 대상건
+ SELECT employee_id, manager_id, salary, salary * 0.001
+   FROM employees
+  WHERE employee_id NOT IN (  SELECT employee_id
+                                FROM ex3_3 )
+    AND manager_id = 146;
+ 
+
+MERGE INTO ex3_3 d
+     USING (SELECT employee_id, salary, manager_id
+              FROM employees
+             WHERE manager_id = 146) b
+        ON (d.employee_id = b.employee_id)
+ WHEN MATCHED THEN
+      UPDATE SET d.bonus_amt = d.bonus_amt + b.salary * 0.01
+ WHEN NOT MATCHED THEN
+      INSERT (d.employee_id, d.bonus_amt) VALUES (b.employee_id, b.salary *.001)
+       WHERE (b.salary < 8000);
+
+
+ SELECT *
+  FROM ex3_3
+ ORDER BY employee_id;  
+ 
+-- 업데이트 될 값을 평가해서 조건에 맞는 데이터를 삭제 할 수도 있다.
+MERGE INTO ex3_3 d
+     USING (SELECT employee_id, salary, manager_id
+              FROM employees
+             WHERE manager_id = 146) b
+        ON (d.employee_id = b.employee_id)
+ WHEN MATCHED THEN
+      UPDATE SET d.bonus_amt = d.bonus_amt + b.salary * 0.01
+      DELETE WHERE (B.employee_id = 161)
+ WHEN NOT MATCHED THEN
+      INSERT (d.employee_id, d.bonus_amt) VALUES (b.employee_id, b.salary *.001)
+      WHERE (b.salary < 8000);
+
+ SELECT *
+  FROM ex3_3
+ ORDER BY employee_id;  
+
+MERGE INTO ex3_3 A
+    USING DUAL
+       ON (A.employee_id = 148)
+ WHEN MATCHED THEN
+      UPDATE SET A.BONUS_AMT = 10      
+ WHEN NOT MATCHED THEN     
+      INSERT (A.EMPLOYEE_ID, A.BONUS_AMT) VALUES (148,10);
+
+
+---------------------------------------------------
+-- 문제
+create table ex_과목(
+     과목번호  NUMBER(3) PRIMARY KEY
+   , 과목이름          VARCHAR2(50)
+   , 학점          NUMBER(3)    
+);
+INSERT INTO EX_과목 (과목번호, 과목이름, 학점 ) VALUES(501, '현대경영학', 10  );
+
+-- ex_과목 테이블에 과목테이블과 비교하여
+-- 없으면 INSERT(전체) 있으면 UPDATE(학점만)하시오
+
+SELECT *
+FROM 학생;
+
+
+MERGE INTO ex_과목
+     USING (SELECT 과목번호, 과목이름, 학점
+              FROM 과목)과목
+        ON (ex_과목.과목번호 = 과목.과목번호)
+ WHEN MATCHED THEN
+      UPDATE SET ex_과목.학점 = 과목.학점
+ WHEN NOT MATCHED THEN
+      INSERT( EX_과목.과목번호, EX_과목.과목이름, EX_과목.학점 )  
+      values (과목.과목번호, 과목.과목이름, 과목.학점);
+
+---------------------------------------------------
+
+MERGE INTO ex_과목 a
+     USING 과목  b
+        ON (a.과목번호 = b.과목번호)
+ WHEN MATCHED THEN
+      UPDATE SET a.학점 = b.학점
+ WHEN NOT MATCHED THEN
+      INSERT( a.과목번호, a.과목이름, a.학점 )  
+      values (b.과목번호, b.과목이름, b.학점);
+```
 
 ## 📚 3장. SQL 함수
 
@@ -5655,3 +5858,75 @@ BEGIN
 END;
 ```
 
+ ## 📚8장 고급 SQL
+### 1. 계층형 쿼리
+```sql
+---------------------------------------------------
+SELECT department_id as 부서번호
+    , LPAD(' ', 3*(LEVEL-1)) || department_name as 부서명
+    , SYS_CONNECT_BY_PATH(department_name, '||')
+    -- 루트 노트에서 시작해 자신의 행까지 연결된 경로 정보를 반환
+    , LEVEL
+    , CONNECT_BY_ISLEAF     --마지막 노드면 1, 자식이 있으면 0
+    , CONNECT_BY_ROOT department_name as root_name -- 최상위
+    , CONNECT_BY_ROOT department_id as root_id     -- 최상위
+FROM departments
+START WITH parent_id IS NULL                       --< 이 조건에 맞는 로우부터 시작함.
+CONNECT BY PRIOR department_id = parent_id         --< 계층형 구조가 어떤식으로 연결되는지 기술(조건)
+                                                    -- PRIOR의 위치 중요
+ORDER SIBLINGS BY DEPARTMENT_NAME -- 정렬가능
+-- 시작을 PARENT_ID 컬럼이 null인 걸로 하고
+-- DEPARTMENT_ID의 이전 부서들의 PARENT_ID를 찾으라는 뜻
+
+---------------------------------------------------
+--문제
+create table jojicdo3 (
+name varchar2(50),
+class varchar2(50),
+class_id varchar2(50),
+parent_class varchar2(50)   default null
+);
+
+drop table jojicdo3;
+
+select *
+from jojicdo3;
+
+insert into jojicdo3(name, class, class_id, parent_class)
+values('이사장', '사장', '10', '');
+
+insert into jojicdo3(name, class, class_id, parent_class)
+values('김부장', '부장', '20', '10');
+
+insert into jojicdo3(name, class, class_id, parent_class)
+values('서차장', '차장', '30', '20');
+
+insert into jojicdo3(name, class, class_id, parent_class)
+values('장과장', '과장', '40', '30');
+
+insert into jojicdo3(name, class, class_id, parent_class)
+values('이대리', '대리', '50', '40');
+
+insert into jojicdo3(name, class, class_id, parent_class)
+values('최사원', '사원', '60', '50');
+
+insert into jojicdo3(name, class, class_id, parent_class)
+values('강사원', '사원', '61', '50');
+
+insert into jojicdo3(name, class, class_id, parent_class)
+values('박과장', '과장', '41', '30');
+
+insert into jojicdo3(name, class, class_id, parent_class)
+values('김대리', '대리', '51', '41');
+
+insert into jojicdo3(name, class, class_id, parent_class)
+values('남궁사원', '사원', '62', '51');
+
+---------------------------------------------------
+SELECT name  
+    , LPAD(' ', 3*(LEVEL-1)) || class
+    , LEVEL
+FROM jojicdo3
+START WITH parent_class IS NULL                      
+CONNECT BY PRIOR class_id = parent_class    ; 
+```
