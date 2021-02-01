@@ -5930,3 +5930,140 @@ FROM jojicdo3
 START WITH parent_class IS NULL                      
 CONNECT BY PRIOR class_id = parent_class    ; 
 ```
+
+
+- 무한 루프 상황   
+```sql
+UPDATE departments
+   SET parent_id = 170
+ WHERE department_id = 30;
+ 
+SELECT department_id, LPAD(' ' , 3 * (LEVEL-1)) || department_name, LEVEL,
+       parent_id
+  FROM departments
+  START WITH department_id = 30
+CONNECT BY PRIOR department_id  = parent_id;
+--- 무한 루프 걸림
+
+SELECT department_id, LPAD(' ' , 3 * (LEVEL-1)) || department_name AS depname, LEVEL,
+       CONNECT_BY_ISCYCLE IsLoop,      -- 무한루프 원인 찾음 ( 현재 로우가 자식을 갖고 있는데 동시에 그 자식 로우가 부모 로우면 1, 아니면 0
+       parent_id
+  FROM departments
+  START WITH department_id = 30
+CONNECT BY NOCYCLE PRIOR department_id  = parent_id;
+```
+- CONNECT BY 절을 이용하여 계층 질의에서 상위계층(부모행)과 하위계층(자식행)의 관계를 규정 할 수 있다.
+- PRIOR 연산자와 함께 사용하여 계층구조로 표현할 수 있다.
+- CONNECT BY PRIOR 자식컬럼 = 부모컬럼 : 부모에서 자식으로 트리구성 (Top Down)
+- CONNECT BY PRIOR 부모컬럼 = 자식컬럼 : 자식에서 부모로 트리 구성 (Bottom Up)
+- CONNECT BY NOCYCLE PRIOR : NOCYCLE 파라미터를 이용하여 무한루프 방지 서브쿼리를 사용할 수 없다.
+        
+```sql
+select department_id
+     , lpad(' ', (level - 1) * 3) ||  department_name
+     , parent_id
+     , level as lvl
+  from departments
+ start with department_id = 90
+connect by  department_id = prior parent_id ;  -- bottom -> top
+-- connect by prior department_id = parent_id ;  --  top -> bottom
+-------------------------------------------------------------------------------
+
+```
+#### 계층형 쿼리 응용
+- level은 오라클에서 실행되는 모든 쿼리 내에서 사용 가능한 가상열로서,
+- 트리 내에서 어떤 단계(level)에 있는지를 나타내는 정수값이다.
+- 계층적인 쿼리가 아니라면 다음과 같이 모든 값이 0, 즉 같은 단계를 가질 것이다.
+```sql
+-- 샘플 데이터 생성
+SELECT level
+FROM DUAL
+CONNECT BY LEVEL <= 12 ; -- 1~12 생성
+---------------------------------------------------------------
+SELECT '2021년' || LPAD(LEVEL,2,0) || '월' as num -- 01~12 생성
+FROM DUAL
+CONNECT BY LEVEL <=12;
+---------------------------------------------------------------
+--201712월 금전지점의 예약 수를 구하시오 월요일 ~ 일요일
+
+SELECT DECODE(T1.요일, 1 , '일요일'
+                    , 2 , '월요일'
+                    , 3 , '화요일'
+                    , 4 , '수요일'
+                    , 5 , '목요일'
+                    , 6 , '금요일'
+                    , 7 , '토요일')as 요일
+             ,nvl(t2.건수, 0)
+    from(
+        select level as 요일
+        from dual
+        connect by level <= 7)t1 ,
+    (SELECT TO_CHAR(TO_DATE(RESERV_DATE), 'D')as 요일
+         , COUNT(RESERV_NO) as 건수
+    FROM RESERVATION
+    WHERE branch = '금천'
+    and substr(RESERV_DATE,1,6) = '201712'
+    GROUP BY TO_CHAR(TO_DATE(RESERV_DATE), 'D')
+        )T2
+where t1.요일 = t2.요일(+)
+order by t1.요일 ;
+```
+- 문제
+```sql
+/*
+ 모든상품의 월별 매출액을 구하시오
+ 매출월, SPECIAL_SET, PASTA, PIZZA, SEA_FOOD, STEAK, SALAD_BAR, SALAD, SANDWICH, WINE, JUICE
+*/
+
+SELECT SUBSTR(A.reserv_date,1,6) 매출월,  
+       SUM(DECODE(B.item_id,'M0001',B.sales,0)) SPECIAL_SET,
+       SUM(DECODE(B.item_id,'M0002',B.sales,0)) PASTA,
+       SUM(DECODE(B.item_id,'M0003',B.sales,0)) PIZZA,
+       SUM(DECODE(B.item_id,'M0004',B.sales,0)) SEA_FOOD,
+       SUM(DECODE(B.item_id,'M0005',B.sales,0)) STEAK,
+       SUM(DECODE(B.item_id,'M0006',B.sales,0)) SALAD_BAR,
+       SUM(DECODE(B.item_id,'M0007',B.sales,0)) SALAD,
+       SUM(DECODE(B.item_id,'M0008',B.sales,0)) SANDWICH,
+       SUM(DECODE(B.item_id,'M0009',B.sales,0)) WINE,
+       SUM(DECODE(B.item_id,'M0010',B.sales,0)) JUICE
+FROM reservation A, order_info B
+WHERE A.reserv_no = B.reserv_no
+GROUP BY SUBSTR(A.reserv_date,1,6)
+ORDER BY SUBSTR(A.reserv_date,1,6);
+```
+- 문제
+```sql
+/*
+문제
+월별 온라인_전용 상품 매출액을 일요일부터 월요일까지 구분해 출력하시오
+날짜, 상품명, 일요일, 월요일, 화요일, 수요일, 목요일, 금요일, 토요일의 매출을 구하시오
+*/
+select  t1.날짜,
+        nvl(t2.일,0)일 , nvl(t2.월,0)월,
+        nvl(t2.화,0)화, nvl(t2.수,0)수,
+        nvl(t2.목,0)목, nvl(t2.금,0)금, nvl(t2.토,0)토
+from(select '2017'||lpad(level,2,0) as 날짜
+     from dual
+     connect by level <= 12)t1,
+            (SELECT SUBSTR(A.reserv_date,1,6) 날짜,  
+                    sum(decode(TO_CHAR(TO_DATE(A.reserv_date), 'D'),'1', B.sales, 0))일,
+                    sum(decode(TO_CHAR(TO_DATE(A.reserv_date), 'D'),'2', B.sales, 0))월,
+                    sum(decode(TO_CHAR(TO_DATE(A.reserv_date), 'D'),'3', B.sales, 0))화,
+                    sum(decode(TO_CHAR(TO_DATE(A.reserv_date), 'D'),'4', B.sales, 0))수,
+                    sum(decode(TO_CHAR(TO_DATE(A.reserv_date), 'D'),'5', B.sales, 0))목,
+                    sum(decode(TO_CHAR(TO_DATE(A.reserv_date), 'D'),'6', B.sales, 0))금,
+                    sum(decode(TO_CHAR(TO_DATE(A.reserv_date), 'D'),'7', B.sales, 0))토
+        
+            FROM reservation A, order_info B
+            WHERE A.reserv_no = B.reserv_no
+            and B.ITEM_ID = 'M0001'
+            GROUP BY SUBSTR(A.reserv_date,1,6)
+            ORDER BY SUBSTR(A.reserv_date,1,6)
+                )t2
+where t1.날짜 = t2.날짜(+)
+order by t1.날짜;
+
+---------------------------------------------------------------
+
+```
+
