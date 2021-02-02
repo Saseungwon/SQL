@@ -5970,7 +5970,7 @@ connect by  department_id = prior parent_id ;  -- bottom -> top
 -------------------------------------------------------------------------------
 
 ```
-#### 계층형 쿼리 응용
+### 2.계층형 쿼리 응용
 - level은 오라클에서 실행되는 모든 쿼리 내에서 사용 가능한 가상열로서,
 - 트리 내에서 어떤 단계(level)에 있는지를 나타내는 정수값이다.
 - 계층적인 쿼리가 아니라면 다음과 같이 모든 값이 0, 즉 같은 단계를 가질 것이다.
@@ -6067,3 +6067,230 @@ order by t1.날짜;
 
 ```
 
+### 3.WITH절
+- 별칭으로 사용한 SELECT문의 FROM절에 다른 SELECT 구문의 별칭 참조가 가능하다.
+- 반복되는 서브쿼리면 빼서 변수처럼 사용, 통계쿼리나 튜닝할 때, 많이 사용
+  1. temp라는 임시 테이블을 사용해서 장시간 걸리는 쿼리의 결과를 저장해놓고 저장해놓은데이터를 엑세스하기 때문에 성능이 좋다.
+  2. 임시로 테이블을 생성해서 쿼리를 해야햘 때에 굳이 테이블을 생성하지 않고 with절을 사용해서 임시로 테이블을 생성하면 된다.
+```sql
+WITH A AS
+
+        (SELECT EMPLOYEE_ID
+              , EMP_NAME
+              , DEPARTMENT_ID
+              , JOB_ID
+              , SALARY
+         FROM EMPLOYEES)
+SELECT*
+FROM A;
+----------------------------------------
+WITH A AS
+
+        (SELECT EMPLOYEE_ID
+              , EMP_NAME
+              , DEPARTMENT_ID
+              , JOB_ID
+              , SALARY
+         FROM EMPLOYEES),
+B AS(SELECT DEPARTMENT_ID
+          , SUM(SALARY) AS DEP_SUM
+          , COUNT(DEPARTMENT_ID) AS DEP_CNT
+          FROM A
+          GROUP BY DEPARTMENT_ID)
+SELECT*
+FROM A, B
+WHERE A.DEPARTMENT_ID = B.DEPARTMENT_ID ;
+```
+
+- 문제 : 일반 select 문으로
+```sql
+----------------------------------------
+--kor_loan_status 테이블에서 '연도별' '최종월(마지막월)' 기준 가장 대출이 많은 도시와 잔액을 구하시오
+----------------------------------------
+-- 1. 연도별 최종 : 2011년의 최종년도는 12월 이지만 2013년은 11월 이므로 연도별 최종월을 알아야 한다.
+-- tip.. 그룹쿼리로 연도별 가장 큰 월을 구한다. max
+-- 2. 연도별 최종월을 대상으로 대출잔액이 가장 큰 금액을 추출한다.
+-- tip 1번과 조인을 해서 연도별로 가장 큰 잔액을 구한다. max
+-- 3. 월별, 지역별 대출 잔액과 2의 결과를 비교해 금액이 같은 건을 추출한다.
+-- tip2와 조인(년도, 잔액)을 해서 두 금액이 같은 건을 구한다.
+----------------------------------------
+--월별 지역별 잔액의 합
+select  period
+     , region
+     , sum(loan_jan_amt)
+from kor_loan_status
+group by period
+        ,region;
+----------------------------------------
+--년도별 최종월
+
+select max(period)
+from kor_loan_status
+group by substr(period, 1, 4);
+----------------------------------------
+select b.period
+     , max(b.jan_amt)       -- 최종월의 맥스(전체지역에서 가장 큰값)
+from (select  period
+            , region
+            , sum(loan_jan_amt) as jan_amt  --월별 지역별 잔액의 합
+      from kor_loan_status
+      group by period
+              ,region ) b,
+     (select max(period) as max_period      --잔액의
+      from kor_loan_status
+      group by substr(period, 1, 4)
+      )a
+            where b.period = a.max_period
+            group by b.period ;
+            
+----------------------------------------
+--WITH절 활용
+WITH a AS
+
+       ( select max(period) as max_period      --잔액의
+      from kor_loan_status
+      group by substr(period, 1, 4)),
+b AS(select  period
+            , region
+            , sum(loan_jan_amt) as jan_amt  --월별 지역별 잔액의 합
+      from kor_loan_status
+      group by period
+              ,region)
+SELECT b.period
+     , max(b.jan_amt)
+FROM a, b
+WHERE a.max_period = b.period
+group by b.period ;
+            
+            
+            
+            
+                
+---------------------------------------------------------------
+select b2.*
+from(
+    select period, region, sum(loan_jan_amt) as jan_amt  
+      from kor_loan_status
+      group by period, region
+    )b2,-----------------------------------------------------반복됨
+     (
+     select b.period
+            ,max(b.jan_amt) as jan_amt  
+      from(
+          select period, region, sum(loan_jan_amt) as jan_amt  
+          from kor_loan_status
+          group by period, region
+          )b,------------------------------------------------반복됨
+     (select max(period) as max_period      --잔액의
+      from kor_loan_status
+      group by substr(period, 1, 4)
+      )a
+    where b.period = a.max_period
+    group by b.period
+    )c
+where b2.period = c.period
+and b2.jan_amt = c.jan_amt;
+---------------------------------------------------------------
+--년월별 아이템의 합계와 전체 합계를 구하시오
+select  t1.날짜,
+        nvl(t2.SPECIAL_SET,0)SPECIAL_SET ,
+        nvl(t2.PASTA,0)PASTA,
+        nvl(t2.PIZZA,0)PIZZA,
+        nvl(t2.SEA_FOOD,0)SEA_FOOD,
+        nvl(t2.STEAK,0)STEAK,
+        nvl(t2.SALAD_BAR,0)SALAD_BAR,
+        nvl(t2.SALAD,0)SALAD,
+        nvl(t2.SANDWICH,0)SANDWICH,
+        nvl(t2.WINE,0)WINE,
+        nvl(t2.JUICE,0)JUICE
+from(select '2017'||lpad(level,2,0) as 날짜
+     from dual
+     connect by level <= 12)t1,
+(SELECT SUBSTR(A.reserv_date,1,6) 매출월,  
+       SUM(DECODE(B.item_id,'M0001',B.sales,0)) SPECIAL_SET,
+       SUM(DECODE(B.item_id,'M0002',B.sales,0)) PASTA,
+       SUM(DECODE(B.item_id,'M0003',B.sales,0)) PIZZA,
+       SUM(DECODE(B.item_id,'M0004',B.sales,0)) SEA_FOOD,
+       SUM(DECODE(B.item_id,'M0005',B.sales,0)) STEAK,
+       SUM(DECODE(B.item_id,'M0006',B.sales,0)) SALAD_BAR,
+       SUM(DECODE(B.item_id,'M0007',B.sales,0)) SALAD,
+       SUM(DECODE(B.item_id,'M0008',B.sales,0)) SANDWICH,
+       SUM(DECODE(B.item_id,'M0009',B.sales,0)) WINE,
+       SUM(DECODE(B.item_id,'M0010',B.sales,0)) JUICE
+FROM reservation A, order_info B
+WHERE A.reserv_no = B.reserv_no
+GROUP BY ROLLUP(SUBSTR(A.reserv_date,1,6))
+ORDER BY SUBSTR(A.reserv_date,1,6)
+) t2
+where t1.날짜 = t2.매출월(+)
+GROUP BY
+order by t1.날짜;
+
+---------------------------------------------------------------
+
+
+
+select  t1.날짜,
+        nvl(t2.SPECIAL_SET,0)SPECIAL_SET , nvl(t2.PASTA,0)PASTA,
+        nvl(t2.PIZZA,0)PIZZA, nvl(t2.SEA_FOOD,0)SEA_FOOD,
+        nvl(t2.STEAK,0)STEAK, nvl(t2.SALAD_BAR,0)SALAD_BAR, nvl(t2.SALAD,0)SALAD
+        , nvl(t2.SANDWICH,0)SANDWICH, nvl(t2.WINE,0)WINE, nvl(t2.JUICE,0)JUICE
+from(select '2017'||lpad(level,2,0) as 날짜
+     from dual
+     connect by level <= 12)t1,
+(SELECT SUBSTR(A.reserv_date,1,6) 매출월,  
+       SUM(DECODE(B.item_id,'M0001',B.sales,0)) SPECIAL_SET,
+       SUM(DECODE(B.item_id,'M0002',B.sales,0)) PASTA,
+       SUM(DECODE(B.item_id,'M0003',B.sales,0)) PIZZA,
+       SUM(DECODE(B.item_id,'M0004',B.sales,0)) SEA_FOOD,
+       SUM(DECODE(B.item_id,'M0005',B.sales,0)) STEAK,
+       SUM(DECODE(B.item_id,'M0006',B.sales,0)) SALAD_BAR,
+       SUM(DECODE(B.item_id,'M0007',B.sales,0)) SALAD,
+       SUM(DECODE(B.item_id,'M0008',B.sales,0)) SANDWICH,
+       SUM(DECODE(B.item_id,'M0009',B.sales,0)) WINE,
+       SUM(DECODE(B.item_id,'M0010',B.sales,0)) JUICE
+       
+FROM reservation A, order_info B
+WHERE A.reserv_no = B.reserv_no
+GROUP BY SUBSTR(A.reserv_date,1,6)
+
+ORDER BY SUBSTR(A.reserv_date,1,6)
+) t2
+where t1.날짜 = t2.매출월(+)
+order by t1.날짜;
+             
+---------------------------------------------------------------
+
+select  DECODE(t1.날짜, 201713 , '전체', t1.날짜),
+        nvl(t2.SPECIAL_SET,0)SPECIAL_SET ,
+        nvl(t2.PASTA,0)PASTA,
+        nvl(t2.PIZZA,0)PIZZA,
+        nvl(t2.SEA_FOOD,0)SEA_FOOD,
+        nvl(t2.STEAK,0)STEAK,
+        nvl(t2.SALAD_BAR,0)SALAD_BAR,
+        nvl(t2.SALAD,0)SALAD,
+        nvl(t2.SANDWICH,0)SANDWICH,
+        nvl(t2.WINE,0)WINE,
+        nvl(t2.JUICE,0)JUICE
+from(select '2017'||lpad(level,2,0) as 날짜
+     from dual
+     connect by level <= 13)t1,
+(SELECT NVL(SUBSTR(A.reserv_date,1,6),201713) 매출월,  
+       SUM(DECODE(B.item_id,'M0001',B.sales,0)) SPECIAL_SET,
+       SUM(DECODE(B.item_id,'M0002',B.sales,0)) PASTA,
+       SUM(DECODE(B.item_id,'M0003',B.sales,0)) PIZZA,
+       SUM(DECODE(B.item_id,'M0004',B.sales,0)) SEA_FOOD,
+       SUM(DECODE(B.item_id,'M0005',B.sales,0)) STEAK,
+       SUM(DECODE(B.item_id,'M0006',B.sales,0)) SALAD_BAR,
+       SUM(DECODE(B.item_id,'M0007',B.sales,0)) SALAD,
+       SUM(DECODE(B.item_id,'M0008',B.sales,0)) SANDWICH,
+       SUM(DECODE(B.item_id,'M0009',B.sales,0)) WINE,
+       SUM(DECODE(B.item_id,'M0010',B.sales,0)) JUICE
+FROM reservation A, order_info B
+WHERE A.reserv_no = B.reserv_no
+GROUP BY ROLLUP(SUBSTR(A.reserv_date,1,6))
+ORDER BY SUBSTR(A.reserv_date,1,6)
+) t2
+where t1.날짜 = t2.매출월(+)
+order by t1.날짜;
+```
