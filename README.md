@@ -6294,3 +6294,178 @@ ORDER BY SUBSTR(A.reserv_date,1,6)
 where t1.날짜 = t2.매출월(+)
 order by t1.날짜;
 ```
+
+ ### 4. 분석 함수와 window 함수
+ - 분석함수란 테이블에 있는 로우에 대해 특정 그룹별로 집계 값을 산출할 때 사용된다.
+ - ROW_NUMBER()로우에 대한 순번반환(단순순번)
+ - partition by 에 department_id를 통해 부서별로
+```sql
+--------------------------------------------------------
+select department_id
+     , emp_name
+     , salary
+     , ROW_NUMBER() OVER (PARTITION BY department_id
+                          ORDER BY emp_name desc) as dep_rows--그룹별로 로우에 대한 순번반환(단순순번)
+from employees;
+
+--------------------------------------------------------
+--member table에서 mem_name, mem_job, mem_mileage, 직업별로 순번 ㅎ->ㄱ 순으로 정렬
+select mem_name
+     , mem_job
+     , mem_mileage
+     , ROW_NUMBER() OVER (PARTITION BY  mem_job
+                          ORDER BY mem_name desc) as job_rows
+from member;
+--------------------------------------------------------
+```
+- RANK() , DENSE_RANK()
+```sql
+--RANK()
+SELECT department_id
+     , emp_name
+     , salary,
+--RANK 동일한 값이 있을 경우 1 2 2 4 다음 번호를 중복 수 만큼 넘어감
+     RANK() OVER (PARTITION BY department_id    -- 부서별로 순위
+                  ORDER BY salary) dep_rnak
+    ,RANK() OVER (ORDER BY salary) dep_all_rank -- 전체 순위
+    
+--DENSE_RANK 동일한 값이 있을 경우 1 2 2 3 다음 번호를 건너 뛰지 않는다.
+    ,DENSE_RANK() OVER (PARTITION BY department_id
+                  ORDER BY salary) dep_dense_rank
+FROM employees;
+
+--------------------------------------------------------
+-- 사번, 사원명, 급여, 해당부서의 총합,
+select employee_id
+     , emp_name
+     , salary
+     , department_id
+     , SUM(salary) over (partition by department_id)
+     , SUM(salary) over ()
+     , avg(salary) over (partition by department_id)
+FROM employees;
+
+--------------------------------------------------------
+--부서별 salary가 가장 큰 한 명씩 출력하시오 salary null 제외
+ select *
+ from departments;
+ 
+ select d.department_id
+      , e.emp_name
+      , e.salary
+from departments d
+    ,employees e
+where d.department_id = e.department_id
+group by d.department_id
+        ,e.emp_name
+        ,e.salary
+;
+
+
+SELECT *
+FROM (SELECT department_id, emp_name,
+             salary,
+             DENSE_RANK() OVER (PARTITION BY department_id
+                                ORDER BY nvl(salary,0) desc) dep_rank
+      FROM employees
+      )
+WHERE dep_rank = 1;
+             
+--------------------------------------------------------
+--employee 전체에서 salary 급여 많은 순위 10위까지 출력하시오
+
+SELECT *
+FROM
+        (
+        SELECT EMP_NAME
+             , NVL(SALARY,0)
+             , DENSE_RANK() OVER (  -- 전체를 대상으로 할 때는 파티션 빼도됨
+                            ORDER BY NVL(SALARY,0) DESC) 순위
+        FROM employees
+        )
+WHERE 순위 <= 10 ;
+
+--------------------------------------------------------
+--CART, PROD 활용하여 물품별 PROD_SALE 합계의 순위(큰순)를 출력하시오(동일 순위 건너뜀)
+--PROD_LGU가 'P101' 인 상품의
+
+
+
+
+SELECT P.PROD_ID
+     , P.PROD_NAME
+     , SUM(P.PROD_SALE * c.cart_qty)
+     , RANK() OVER (ORDER BY P.PROD_SALE DESC) RANK
+FROM  PROD P
+    , CART C
+WHERE C.CART_PROD = P.PROD_ID
+AND P.PROD_ID LIKE 'P101%'
+GROUP BY P.PROD_ID
+       , P.PROD_NAME
+       , P.PROD_SALE;
+```
+
+- NTILE(expr) : 파티션 별로 명시된 값만큼 분할한 결과를 반환
+  - NTILE(3)이면 1~3 사이 수를 반환 분할하는 수를 버킷 수라고 하며 3면 3개로 나눠담는 뜻(로우의 수보다 큰 수를 명시하면 반환되는 수는 무시한다.)
+```sql
+--------------------------------------------------------
+
+select employee_id
+     , emp_name
+     , salary
+     , NTILE(3) OVER(PARTITION BY department_id
+                     ORDER BY salary
+            )NTILES
+FROM employees
+WHERE department_id IN(30, 60) ;
+
+--------------------------------------------------------
+```
+- WITH_BUCKET(expr, min_value, max_value, num_buckets)
+  - NTILE 처럼 분할 결과를 반환하는데, 다른 점음 expr 값에 따라 min_value 최소값, num_buckets 최대값을 주어 num_buckets 수만큼 분할한다.
+```sql
+
+select employee_id
+     , emp_name
+     , salary
+     , NTILE(4) OVER(PARTITION BY department_id
+                     ORDER BY salary
+            )NTILES
+     , WIDTH_BUCKET(salary, 1000, 10000, 4 )as widthbucket
+FROM employees
+WHERE department_id = 60 ;
+--------------------------------------------------------
+```
+- LAG
+- LEAD
+```sql
+--주어진 그룹과 순서에 따라 로우에 있는 값을 참조할 때 사용
+--LAG
+
+select employee_id
+     , emp_name
+     , salary
+     , department_id
+     , hire_date
+     , LAG(emp_name,1,'가장 높음') over (
+                partition by department_id order by salary desc) ap_emp_lag -- 선행
+     , LEAD(emp_name,1,'아래') over (
+                partition by department_id order by salary desc) ap_emp_lead -- 후행
+    from employees
+where department_id in (30, 60);
+--------------------------------------------------------
+-- 학생의 전공별에서 평점 기준 과탑을 출력하시오
+
+select a.*
+from
+        (
+        select 전공
+             , 이름
+             , LAG(전공,1,'학과탑') over (
+                        partition by 전공 order by 평점 desc) ap_emp_lag -- 선행
+        from 학생 ) a
+where 전공 is not null
+and ap_emp_lag  = '학과탑'
+;
+--------------------------------------------------------
+```
