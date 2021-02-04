@@ -6469,3 +6469,144 @@ and ap_emp_lag  = '학과탑'
 ;
 --------------------------------------------------------
 ```
+
+```sql
+------------------------------------------------------------------------------
+select employee_id
+     , emp_name
+     , salary
+    
+      , SUM(salary) over (partition by department_id order by hire_Date
+                         rows between unbounded preceding and unbounded following
+                         ) as all_salary -- 파티션에서 처음부터 끝까지 합
+      , SUM(salary) over (partition by department_id order by hire_Date
+                         rows between unbounded preceding and current row
+                         ) as first_current_sal -- 파티션에서 처음부터 나까지
+      , SUM(salary) over (partition by department_id order by hire_Date
+                         rows between current row and unbounded following
+                         ) as current_end_sal  -- 파티션에서 나부터 끝까지
+FROM employees
+where department_id in (30, 90);
+
+------------------------------------------------------------------------------
+select employee_id
+     , emp_name
+     , salary
+      , SUM(salary) over (partition by department_id order by hire_Date
+                         rows between 1 preceding and current row
+                         ) as preceding_jun1_na --
+      , SUM(salary) over (partition by department_id order by hire_Date
+                         rows between 1 preceding and 1 following
+                         ) as preceding_jun1_na_daum1 --
+      , SUM(salary) over (partition by department_id order by hire_Date
+                         rows between current row and 2 following
+                         ) as following_na_daum2  --
+FROM employees
+where department_id in (90, 30);
+------------------------------------------------------------------------------
+-- kor_loan_status 테이블을 활용하여 년도별 서울의 대출금액과 년도별 누적 합산 금액을 출력하시오
+            
+select t2.yy
+     , t2.REGION
+     , t2.sum_loan
+     , SUM(t2.sum_loan) over (order by t2.yy
+                         rows between unbounded preceding and CURRENT row
+                         ) as LOAN_JAN_AMT2
+from
+    (
+                  select substr(PERIOD,1,4) as yy
+                      , REGION
+                      , sum(LOAN_JAN_AMT) as sum_loan
+                 from kor_loan_status
+                 where REGION = '서울'
+                 group by substr(PERIOD,1,4), REGION
+     )t2;
+
+------------------------------------------------------------------------------
+```
+- RANGE 논리적 범위(숫자와 날짜의 형태로 범위를 줄 수 있다)
+```sql
+-- RANGE 논리적 범위(숫자와 날짜의 형태로 범위를 줄 수 있다)
+select employee_id
+     , emp_name
+     , salary
+      , SUM(salary) over (partition by department_id order by hire_Date
+                         range between unbounded preceding and unbounded following
+                         ) as all_salary
+      , SUM(salary) over (partition by department_id order by hire_Date
+                         range 365 preceding
+                         ) as range_sall
+      , SUM(salary) over (partition by department_id order by hire_Date
+                         range between 365 preceding and current row
+                         ) as range_sal2  
+FROM employees
+where department_id in (30, 90);
+------------------------------------------------------------------------------
+--지역별 대출종류별, 월별 대출잔액과 지역별 파티션을 만들어 대출종류별 대출잔액의 %를 구하는 쿼리를 작성해보자.
+--KOR_LOAN_STATUS 테이블
+select *
+from KOR_LOAN_STATUS ;
+
+select REGION 지역
+     , GUBUN  대출종류
+     , SUM(DECODE(TO_CHAR(PERIOD), 201111, LOAN_JAN_AMT, 0)) "201111"
+     , SUM(DECODE(TO_CHAR(PERIOD), 201112, LOAN_JAN_AMT, 0)) "201112"
+     , SUM(DECODE(TO_CHAR(PERIOD), 201210, LOAN_JAN_AMT, 0)) "201210"
+     , SUM(DECODE(TO_CHAR(PERIOD), 201211, LOAN_JAN_AMT, 0)) "201211"
+     , SUM(DECODE(TO_CHAR(PERIOD), 201212, LOAN_JAN_AMT, 0)) "201212"
+     , SUM(DECODE(TO_CHAR(PERIOD), 201310, LOAN_JAN_AMT, 0)) "201310"
+     , SUM(DECODE(TO_CHAR(PERIOD), 201311, LOAN_JAN_AMT, 0)) "201311"
+from KOR_LOAN_STATUS
+GROUP BY REGION
+     , GUBUN
+order by 3 desc;
+
+
+     
+select REGION 지역
+     , GUBUN  대출종류
+     , LOAN_JAN_AMT
+     , SUM(DECODE(TO_CHAR(PERIOD), 201111, LOAN_JAN_AMT, 0)) "201111"
+     , RATIO_TO_REPORT(LOAN_JAN_AMT) over (partition by (DECODE(TO_CHAR(PERIOD), 201111, LOAN_JAN_AMT, 0)) ) * 100 as "2"
+     , SUM(DECODE(TO_CHAR(PERIOD), 201112, LOAN_JAN_AMT, 0)) "201112"
+     , SUM(DECODE(TO_CHAR(PERIOD), 201210, LOAN_JAN_AMT, 0)) "201210"
+     , SUM(DECODE(TO_CHAR(PERIOD), 201211, LOAN_JAN_AMT, 0)) "201211"
+     , SUM(DECODE(TO_CHAR(PERIOD), 201212, LOAN_JAN_AMT, 0)) "201212"
+     , SUM(DECODE(TO_CHAR(PERIOD), 201310, LOAN_JAN_AMT, 0)) "201310"
+     , SUM(DECODE(TO_CHAR(PERIOD), 201311, LOAN_JAN_AMT, 0)) "201311"
+from KOR_LOAN_STATUS
+GROUP BY REGION
+     , GUBUN
+     , LOAN_JAN_AMT
+order by 3 desc;
+
+
+
+select t1.지역
+     , t1.대출종류
+     , t1."201111" || '(' || round(RATIO_TO_REPORT("201111") over (partition by 지역)*100) ||'%)' as "201111"
+     , t1."201112" || '(' || round(RATIO_TO_REPORT("201111") over (partition by 지역)*100) ||'%)' as "201112"
+     , t1."201210" || '(' || round(RATIO_TO_REPORT("201111") over (partition by 지역)*100) ||'%)' as "201210"
+     , t1."201211" || '(' || round(RATIO_TO_REPORT("201111") over (partition by 지역)*100) ||'%)' as "201211"
+     , t1."201212" || '(' || round(RATIO_TO_REPORT("201111") over (partition by 지역)*100) ||'%)' as "201212"
+     , t1."201310" || '(' || round(RATIO_TO_REPORT("201111") over (partition by 지역)*100) ||'%)' as "201310"
+     , t1."201311" || '(' || round(RATIO_TO_REPORT("201111") over (partition by 지역)*100) ||'%)' as "201311"
+from
+    (
+                select REGION 지역
+                     , GUBUN  대출종류
+                     , SUM(DECODE(TO_CHAR(PERIOD), 201111, LOAN_JAN_AMT, 0)) "201111"
+                     , SUM(DECODE(TO_CHAR(PERIOD), 201112, LOAN_JAN_AMT, 0)) "201112"
+                     , SUM(DECODE(TO_CHAR(PERIOD), 201210, LOAN_JAN_AMT, 0)) "201210"
+                     , SUM(DECODE(TO_CHAR(PERIOD), 201211, LOAN_JAN_AMT, 0)) "201211"
+                     , SUM(DECODE(TO_CHAR(PERIOD), 201212, LOAN_JAN_AMT, 0)) "201212"
+                     , SUM(DECODE(TO_CHAR(PERIOD), 201310, LOAN_JAN_AMT, 0)) "201310"
+                     , SUM(DECODE(TO_CHAR(PERIOD), 201311, LOAN_JAN_AMT, 0)) "201311"
+                from KOR_LOAN_STATUS
+                GROUP BY REGION
+                     , GUBUN
+               
+    )t1
+    order by 1, 2 desc;
+    
+```
