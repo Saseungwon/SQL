@@ -6820,3 +6820,168 @@ SELECT CART_MEMBER
      , ROW_NUMBER() OVER (PARTITION BY CART_MEMBER ORDER BY CART_PROD )  AS cart_rows        -- 그불별로 로우에 대한 순번반환(단순순번)
 FROM CART;
 ```
+## 20210209 SQL 문제  
+```sql
+----------------------------------------------------------------
+--문제 1
+
+CREATE TABLESPACE TS_STUDY
+DATAFILE '/u01/app/oracle/oradata/XE/ts_study.dbf' SIZE 100M
+AUTOEXTEND ON NEXT 5M;
+
+
+----------------------------------------------------------------
+--문제 2
+create user java2 IDENTIFIED BY oracle
+default TABLESPACE TS_STUDY
+TEMPORARY TABLESPACE temp;
+
+
+----------------------------------------------------------------
+--문제 3
+GRANT CONNECT, RESOURCE to java2;
+
+
+----------------------------------------------------------------
+--문제 4
+
+create table EX_MEM(
+    MEM_ID          VARCHAR2(10)    NOT NULL
+,   MEM_NAME        VARCHAR2(20)    NOT NULL
+,   MEM_JOB         VARCHAR2(30)
+,   MEM_MILEAGE     NUMBER(8,2)     default 0
+,   MEM_REG_DATE    DATE            default sysdate
+,   CONSTRAINT PK_EX_MEM PRIMARY KEY (MEM_ID)
+);
+
+
+
+COMMENT ON TABLE EX_MEM IS '임시회원테이블' ;       
+     
+COMMENT ON COLUMN EX_MEM.MEM_ID IS '아이디';
+
+COMMENT ON COLUMN EX_MEM.MEM_NAME IS '회원명';
+
+COMMENT ON COLUMN EX_MEM.MEM_JOB IS '직업';
+
+COMMENT ON COLUMN EX_MEM.MEM_MILEAGE IS '마일리지';
+
+COMMENT ON COLUMN EX_MEM.MEM_REG_DATE IS '등록일';
+
+
+
+
+----------------------------------------------------------------
+--문제 5
+ALTER TABLE EX_MEM MODIFY MEM_NAME VARCHAR2(50);
+
+----------------------------------------------------------------
+--문제 6
+
+CREATE SEQUENCE SEQ_CODE
+INCREMENT BY    1
+START WITH      1000
+MINVALUE        1
+MAXVALUE        9999  
+CYCLE         
+NOCACHE   ;    
+
+
+SELECT SEQ_CODE.NEXTVAL  
+FROM DUAL ;
+
+----------------------------------------------------------------
+--문제 7
+insert into EX_MEM (MEM_ID, MEM_NAME, MEM_JOB, MEM_MILEAGE, MEM_REG_DATE)
+values('hong', '홍길동', '주부', '', sysdate);
+
+
+----------------------------------------------------------------
+--문제 8
+INSERT INTO EX_MEM(MEM_ID, MEM_NAME, MEM_JOB, MEM_MILEAGE, MEM_REG_DATE)
+SELECT MEM_ID, MEM_NAME, MEM_JOB, MEM_MILEAGE, sysdate  FROM member
+where MEM_LIKE = '독서'  
+or MEM_LIKE = '등산'
+or MEM_LIKE = '바둑';
+
+----------------------------------------------------------------
+--문제 9
+
+DELETE EX_MEM
+WHERE MEM_NAME like '김%';
+
+----------------------------------------------------------------
+--문제 10
+
+select MEM_ID
+     , MEM_NAME
+     , MEM_JOB
+     , MEM_MILEAGE
+from member
+where mem_job = '주부'
+and MEM_MILEAGE >= 1000
+and MEM_MILEAGE <= 3000
+order by 4 desc;
+
+----------------------------------------------------------------
+--문제 11
+
+select prod_id, prod_name, prod_sale
+from prod
+WHERE prod_sale = 23000
+or prod_sale = 26000
+or prod_sale = 33000;
+
+----------------------------------------------------------------
+--문제 12
+
+select MEM_JOB
+     , count(*)                    MEM_CNT
+     , max(MEM_MILEAGE)            MEX_MLG
+     , trunc(avg(MEM_MILEAGE),0)   AVG_MLG
+from member
+group by MEM_JOB
+having count(*) >= 3 ;
+
+
+----------------------------------------------------------------
+--문제 13
+
+select m.MEM_ID
+     , m.MEM_NAME
+     , m.MEM_JOB
+     , c.CART_PROD
+     , c.CART_QTY
+from member m
+   , cart c
+where m.MEM_ID = c.cart_member
+and CART_NO like '20050728%';
+
+----------------------------------------------------------------
+--문제 14
+
+select m.MEM_ID
+     , m.MEM_NAME
+     , m.MEM_JOB
+     , c.CART_PROD
+     , c.CART_QTY
+from member m
+inner join cart c
+on(m.MEM_ID = c.cart_member)
+where CART_NO like '20050728%';
+
+----------------------------------------------------------------
+--문제 15
+
+select MEM_ID
+     , MEM_NAME
+     , MEM_JOB
+     , MEM_MILEAGE
+     , DENSE_RANK() OVER (partition by MEM_JOB ORDER BY MEM_MILEAGE desc) MEM_RANK
+from member ;
+
+----------------------------------------------------------------
+
+
+
+```
